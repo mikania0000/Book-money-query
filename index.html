@@ -120,7 +120,7 @@
           <select v-model="editForm.statusBase" class="w-full border rounded p-2 mb-2">
             <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
             <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
-            <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
+            <option value="3. 轉出他校，已寫名字，未註冊，出納繳費">3. 轉出他校，已寫名字，未註冊，出納繳費</option>
             <option value="4. 其他">4. 其他</option>
           </select>
           <input v-if="editForm.statusBase === '4. 其他'" type="text" v-model="editForm.statusOther" placeholder="請手動輸入其他狀態" class="w-full border rounded p-2">
@@ -321,7 +321,7 @@
                     <option disabled value="">-- 請選擇狀態 --</option>
                     <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
                     <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
-                    <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
+                    <option value="3. 轉出他校，已寫名字，未註冊，出納繳費">3. 轉出他校，已寫名字，未註冊，出納繳費</option>
                     <option value="4. 其他">4. 其他</option>
                   </select>
                   <div v-if="form.statusOption === '4. 其他'" class="animate-fade-in mt-2">
@@ -471,7 +471,6 @@
         });
 
         const isEditingModalOpen = ref(false);
-        // ✅ 用於紀錄編輯 Modal 中的膠囊按鈕狀態
         const editSelectedBooks = ref({}); 
         const editForm = reactive({
           id: '', grade: '7', className: '', seatNo: '', name: '', purchasedItems: '', totalPrice: 0, statusBase: '', statusOther: '', notes: ''
@@ -479,7 +478,6 @@
 
         const isConfirmModalOpen = ref(false);
         
-        // 刪除專用 Modal 狀態
         const isDeleteModalOpen = ref(false);
         const deleteTargetId = ref('');
 
@@ -674,17 +672,14 @@
           } catch (e) { showToast('連線錯誤', 'error'); }
         };
 
-        // ✅ 處理編輯 Modal 的年級切換
         const handleEditGradeChange = () => {
           editSelectedBooks.value = {};
           editForm.totalPrice = 0;
         };
 
-        // ✅ 點擊書本標籤 (新增/移除) 並自動算錢
         const toggleEditSelection = (book) => {
           editSelectedBooks.value[book.id] = !editSelectedBooks.value[book.id];
           
-          // 自動重新計算總金額
           let sum = 0;
           allBooks.value.forEach(b => {
             if (b.grade === editForm.grade && editSelectedBooks.value[b.id]) {
@@ -702,14 +697,12 @@
           editForm.totalPrice = rec.totalPrice;
           editForm.notes = rec.notes;
           
-          // 自動判斷年級 (若班級第一碼是 7,8,9 則帶入，否則預設 7)
           let guessedGrade = '7';
           if (rec.className && ['7', '8', '9'].includes(String(rec.className).charAt(0))) {
             guessedGrade = String(rec.className).charAt(0);
           }
           editForm.grade = guessedGrade;
 
-          // 還原已購買的書單勾選狀態
           editSelectedBooks.value = {};
           const gradeBooks = allBooks.value.filter(b => b.grade === guessedGrade);
           
@@ -724,7 +717,7 @@
           
           if (rec.statusOption && rec.statusOption.startsWith('其他：')) {
             editForm.statusBase = '4. 其他'; editForm.statusOther = rec.statusOption.replace('其他：', '');
-          } else if (['1. 他校轉入，買部分，未註冊，須改單', '2. 他校轉入，買全部，未註冊，不須改單', '3. 轉出他校，已簽名，未註冊，出納繳費'].includes(rec.statusOption)) {
+          } else if (['1. 他校轉入，買部分，未註冊，須改單', '2. 他校轉入，買全部，未註冊，不須改單', '3. 轉出他校，已寫名字，未註冊，出納繳費'].includes(rec.statusOption)) {
             editForm.statusBase = rec.statusOption; editForm.statusOther = '';
           } else {
             editForm.statusBase = '4. 其他'; editForm.statusOther = rec.statusOption;
@@ -766,7 +759,6 @@
           else { authLoading.value = false; setTimeout(() => renderGoogleButton(), 100); }
         });
 
-        // ✅ 確保所有在此宣告的變數都有匯出
         return {
           isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
           allBooks, processedBooks, allProcessedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
@@ -776,7 +768,7 @@
           handlePreSubmit, confirmAddRecord, isConfirmModalOpen,
           fetchRecords, deleteRecord, confirmDelete, isDeleteModalOpen,
           isEditingModalOpen, editForm, openEditModal, submitEditRecord,
-          editSelectedBooks, handleEditGradeChange, toggleEditSelection // <-- 修復 ReferenceError 的關鍵
+          editSelectedBooks, handleEditGradeChange, toggleEditSelection 
         };
       }
     }).mount('#app');
