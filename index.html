@@ -4,27 +4,64 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>轉入生教科書價錢查詢與紀錄</title>
-  <!-- 載入 Vue 3 和 Tailwind CSS -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- 載入 Google 登入 API -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    /* 全站基礎大字體設定 */
     html { font-size: 20px; }
     body { font-size: 1rem; } 
-    /* 自訂選取方塊顏色，依比例放大 */
     .custom-checkbox { width: 1.5rem; height: 1.5rem; accent-color: #059669; cursor: pointer; }
     [v-cloak] { display: none; }
+    /* 隱藏滾動條但保持可滾動 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-2 md:p-4 font-sans text-gray-800 tracking-wide">
-  <div id="app" v-cloak class="max-w-5xl mx-auto">
+<body class="bg-slate-100 min-h-screen p-2 md:p-4 font-sans text-gray-800 tracking-wide">
+  <div id="app" v-cloak class="max-w-6xl mx-auto">
     
-    <!-- 提示訊息 Modal/Toast -->
+    <!-- 提示訊息 Toast -->
     <div v-if="toast.show" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded shadow-xl text-white font-bold transition-all text-[20px]"
          :class="toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'">
       {{ toast.message }}
+    </div>
+
+    <!-- 編輯紀錄 Modal -->
+    <div v-if="isEditingModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <h2 class="text-[26px] font-bold text-emerald-800 mb-6 border-b-2 border-emerald-500 pb-2">編輯紀錄</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div><label class="block text-gray-700 font-bold mb-1">班級</label><input type="text" v-model="editForm.className" class="w-full border rounded p-2"></div>
+          <div><label class="block text-gray-700 font-bold mb-1">座號</label><input type="text" v-model="editForm.seatNo" class="w-full border rounded p-2"></div>
+          <div><label class="block text-gray-700 font-bold mb-1">姓名</label><input type="text" v-model="editForm.name" class="w-full border rounded p-2"></div>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 font-bold mb-1">購買內容 (純文字修改)</label>
+          <textarea v-model="editForm.purchasedItems" rows="2" class="w-full border rounded p-2"></textarea>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 font-bold mb-1">總價格</label>
+          <input type="number" v-model="editForm.totalPrice" class="w-full border rounded p-2">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 font-bold mb-1">是否改單狀態</label>
+          <select v-model="editForm.statusBase" class="w-full border rounded p-2 mb-2">
+            <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
+            <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
+            <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
+            <option value="4. 其他">4. 其他</option>
+          </select>
+          <input v-if="editForm.statusBase === '4. 其他'" type="text" v-model="editForm.statusOther" placeholder="請手動輸入其他狀態" class="w-full border rounded p-2">
+        </div>
+        <div class="mb-6">
+          <label class="block text-gray-700 font-bold mb-1">備註</label>
+          <textarea v-model="editForm.notes" rows="2" class="w-full border rounded p-2"></textarea>
+        </div>
+        <div class="flex justify-end gap-4">
+          <button @click="isEditingModalOpen = false" class="px-6 py-2 bg-gray-400 text-white font-bold rounded hover:bg-gray-500">取消</button>
+          <button @click="submitEditRecord" class="px-6 py-2 bg-emerald-600 text-white font-bold rounded hover:bg-emerald-700">儲存變更</button>
+        </div>
+      </div>
     </div>
 
     <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
@@ -40,125 +77,201 @@
 
       <div class="p-4 md:p-6">
         
-        <!-- ================= 載入/驗證狀態 ================= -->
+        <!-- 載入狀態 -->
         <div v-if="authLoading" class="text-center py-20">
           <div class="animate-spin inline-block w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full mb-4"></div>
           <p class="text-[22px] font-bold text-gray-600">系統載入與身分驗證中...</p>
         </div>
 
-        <!-- ================= 登入畫面 ================= -->
-        <div v-else-if="!isAuthenticated" class="max-w-md mx-auto bg-slate-100 p-8 rounded-xl border border-slate-200 text-center my-10">
+        <!-- 登入畫面 -->
+        <div v-else-if="!isAuthenticated" class="max-w-md mx-auto bg-slate-50 p-8 rounded-xl border border-slate-200 text-center my-10">
           <h2 class="text-[28px] font-bold mb-4 text-emerald-800">人員登入</h2>
-          <p class="mb-8 text-[20px] text-gray-600">請使用已授權於白名單的 Google 帳號登入系統</p>
-          <!-- Google 登入按鈕容器 -->
+          <p class="mb-8 text-[20px] text-gray-600">請使用已授權的 Google 帳號登入系統</p>
           <div id="google-button-container" class="flex justify-center min-h-[50px]"></div>
         </div>
 
-        <!-- ================= 系統主要內容 ================= -->
+        <!-- 系統主要內容 -->
         <div v-else>
           
-          <!-- 學生資訊區 -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 bg-slate-100 p-5 rounded-lg border border-slate-200">
-            <div>
-              <label class="block text-[20px] font-bold text-gray-700 mb-2">年級</label>
-              <select v-model="form.grade" @change="handleGradeChange" class="w-full border-gray-300 rounded p-3 border focus:ring-emerald-500 focus:border-emerald-500 text-[20px]">
-                <option value="7">七年級</option>
-                <option value="8">八年級</option>
-                <option value="9">九年級</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-[20px] font-bold text-gray-700 mb-2">班級 (例: 701)</label>
-              <input type="text" v-model="form.className" class="w-full border-gray-300 rounded p-3 border focus:ring-emerald-500 focus:border-emerald-500 text-[20px]" placeholder="輸入班級">
-            </div>
-            <div>
-              <label class="block text-[20px] font-bold text-gray-700 mb-2">座號</label>
-              <input type="number" v-model="form.seatNo" class="w-full border-gray-300 rounded p-3 border focus:ring-emerald-500 focus:border-emerald-500 text-[20px]" placeholder="輸入座號">
-            </div>
-            <div>
-              <label class="block text-[20px] font-bold text-gray-700 mb-2">姓名</label>
-              <input type="text" v-model="form.name" class="w-full border-gray-300 rounded p-3 border focus:ring-emerald-500 focus:border-emerald-500 text-[20px]" placeholder="輸入姓名">
-            </div>
+          <!-- 頁籤切換 -->
+          <div class="flex border-b-2 border-emerald-200 mb-6">
+            <button @click="activeTab = 'new'" class="px-6 py-3 font-bold text-[22px] transition" :class="activeTab === 'new' ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-600 rounded-t-lg' : 'text-gray-500 hover:bg-gray-50'">
+              新增紀錄
+            </button>
+            <button @click="switchToManageTab" class="px-6 py-3 font-bold text-[22px] transition" :class="activeTab === 'manage' ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-600 rounded-t-lg' : 'text-gray-500 hover:bg-gray-50'">
+              管理歷史紀錄
+            </button>
           </div>
 
-          <!-- 按鈕操作區 -->
-          <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
-            <h2 class="text-[24px] font-bold text-gray-800 border-l-4 border-emerald-500 pl-3">購書清單</h2>
-            <div class="flex space-x-3 w-full md:w-auto">
-              <button @click="selectAll" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded text-[20px] font-bold transition shadow">全選</button>
-              <button @click="deselectAll" class="flex-1 md:flex-none bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded text-[20px] font-bold transition shadow">全部取消</button>
-            </div>
-          </div>
-
-          <!-- 書單表格 (為手機保留滾動) -->
-          <div class="overflow-x-auto border rounded-lg mb-8 shadow-sm">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-emerald-100">
-                <tr>
-                  <th class="px-3 py-4 text-left font-bold text-gray-800 w-20 text-center text-[20px]">勾選</th>
-                  <th class="px-4 py-4 text-left font-bold text-gray-800 text-[20px]">科目 / 書名</th>
-                  <th class="px-4 py-4 text-left font-bold text-gray-800 text-[20px] w-1/4">出版社</th>
-                  <th class="px-4 py-4 text-right font-bold text-gray-800 text-[20px] w-28">單價</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-if="isLoading" class="text-center">
-                  <td colspan="4" class="px-4 py-10 text-gray-500 font-bold text-[20px]">書單資料載入中...</td>
-                </tr>
-                <tr v-else-if="filteredBooks.length === 0" class="text-center">
-                  <td colspan="4" class="px-4 py-10 text-gray-500 font-bold text-[20px]">該年級目前無書單資料</td>
-                </tr>
-                <tr v-for="(book, index) in filteredBooks" :key="book.id" 
-                    class="hover:bg-emerald-50 transition cursor-pointer"
-                    @click="toggleSelection(book.id)">
-                  <td class="px-3 py-4 text-center" @click.stop>
-                    <input type="checkbox" v-model="selectedBooks[book.id]" class="custom-checkbox">
-                  </td>
-                  <td class="px-4 py-4 font-bold text-gray-800 text-[22px]">{{ book.subject }}</td>
-                  <td class="px-4 py-4 text-gray-600">
-                    <span class="px-3 py-1 bg-gray-100 border border-gray-200 rounded text-[18px]">{{ book.publisher }}</span>
-                  </td>
-                  <td class="px-4 py-4 text-right font-bold text-emerald-600 text-[22px]">{{ book.price }}</td>
-                </tr>
-              </tbody>
-              <tfoot class="bg-emerald-50 border-t-2 border-emerald-300">
-                <tr>
-                  <td colspan="3" class="px-4 py-5 text-right font-bold text-gray-800 text-[24px]">金額總計：</td>
-                  <td class="px-4 py-5 text-right font-black text-red-600 text-[28px]">{{ totalPrice }}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <!-- 紀錄專用選項區 -->
-          <div class="bg-yellow-50 p-5 rounded-lg border border-yellow-300 mb-8 shadow-sm">
-            <h2 class="text-[24px] font-bold text-gray-800 border-l-4 border-yellow-500 pl-3 mb-5">紀錄與備註</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="block text-[20px] font-bold text-gray-700 mb-2">是否改單狀態 <span class="text-red-500">*</span></label>
-                <select v-model="form.statusOption" class="w-full border-gray-300 rounded p-3 border focus:ring-yellow-500 focus:border-yellow-500 text-[20px]">
-                  <option disabled value="">-- 請選擇狀態 --</option>
-                  <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
-                  <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
-                  <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
-                  <option value="4. 其他">4. 其他</option>
+          <!-- ================= 頁籤 1: 新增紀錄 ================= -->
+          <div v-show="activeTab === 'new'">
+            
+            <div class="flex flex-col md:flex-row items-center justify-between mb-4 gap-4 bg-slate-50 p-4 rounded-lg border">
+              <div class="flex items-center gap-4 w-full md:w-auto">
+                <label class="text-[22px] font-bold text-gray-800 whitespace-nowrap">選擇年級：</label>
+                <select v-model="form.grade" @change="handleGradeChange" class="w-full md:w-48 border-gray-300 rounded p-3 border focus:ring-emerald-500 focus:border-emerald-500 text-[20px] shadow-sm font-bold text-emerald-800 bg-white">
+                  <option value="7">七年級</option>
+                  <option value="8">八年級</option>
+                  <option value="9">九年級</option>
                 </select>
               </div>
-              <div>
-                <label class="block text-[20px] font-bold text-gray-700 mb-2">備註</label>
-                <textarea v-model="form.notes" rows="2" class="w-full border-gray-300 rounded p-3 border focus:ring-yellow-500 focus:border-yellow-500 text-[20px]" placeholder="輸入其他備註事項..."></textarea>
+              
+              <!-- 🌟 新增：置頂總金額顯示，讓使用者勾選時隨時可見 -->
+              <div class="flex-1 text-center md:text-right font-bold text-[24px] text-gray-800">
+                目前總計：<span class="text-red-600 text-[30px]">{{ totalPrice }}</span> 元
+              </div>
+
+              <div class="flex space-x-3 w-full md:w-auto">
+                <button @click="selectAll" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded text-[20px] font-bold transition shadow">全選</button>
+                <button @click="deselectAll" class="flex-1 md:flex-none bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded text-[20px] font-bold transition shadow">全部取消</button>
               </div>
             </div>
+
+            <!-- 書單表格 (緊縮排版 + 固定表頭表尾內部滾動) -->
+            <div class="overflow-y-auto border rounded-lg mb-8 shadow-sm max-h-[50vh] relative no-scrollbar">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm">
+                  <tr>
+                    <th class="px-2 py-2 text-left font-bold text-gray-800 w-20 text-center text-[18px]">勾選</th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-800 text-[18px]">科目 / 書名</th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-800 text-[18px] w-1/4">出版社</th>
+                    <th class="px-3 py-2 text-right font-bold text-gray-800 text-[18px] w-28">單價</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  <tr v-if="isLoadingBooks" class="text-center bg-white">
+                    <td colspan="4" class="px-4 py-6 text-gray-500 font-bold text-[20px]">書單資料載入中...</td>
+                  </tr>
+                  <tr v-else-if="processedBooks.length === 0" class="text-center bg-white">
+                    <td colspan="4" class="px-4 py-6 text-gray-500 font-bold text-[20px]">該年級目前無書單資料</td>
+                  </tr>
+                  <!-- 利用 computed 的 processedBooks 進行同科同底色繪製 -->
+                  <tr v-for="(book, index) in processedBooks" :key="book.id" 
+                      :class="[book.bgColorClass, 'hover:brightness-95 transition cursor-pointer']"
+                      @click="toggleSelection(book.id)">
+                    <td class="px-2 py-2 text-center" @click.stop>
+                      <input type="checkbox" v-model="selectedBooks[book.id]" class="custom-checkbox">
+                    </td>
+                    <td class="px-3 py-2 font-bold text-gray-800 text-[20px]">{{ book.subject }}</td>
+                    <td class="px-3 py-2">
+                      <!-- 動態出版社顏色 -->
+                      <span :class="getPublisherClass(book.publisher)" class="px-2 py-1 border rounded font-bold text-[16px] inline-block shadow-sm">
+                        {{ book.publisher }}
+                      </span>
+                    </td>
+                    <td class="px-3 py-2 text-right font-black text-emerald-700 text-[20px]">{{ book.price }}</td>
+                  </tr>
+                </tbody>
+                <!-- 🌟 新增：鎖定在底部的表尾 -->
+                <tfoot class="bg-emerald-50 border-t-4 border-emerald-400 sticky bottom-0 z-10 shadow-[0_-2px_6px_rgba(0,0,0,0.05)]">
+                  <tr>
+                    <td colspan="3" class="px-3 py-3 text-right font-bold text-gray-800 text-[22px]">金額總計：</td>
+                    <td class="px-3 py-3 text-right font-black text-red-600 text-[26px]">{{ totalPrice }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <!-- 學生資料與備註區 -->
+            <div class="bg-yellow-50 p-6 rounded-xl border-2 border-yellow-300 mb-8 shadow-sm">
+              <h2 class="text-[24px] font-bold text-gray-800 border-l-8 border-yellow-500 pl-3 mb-5">學生資料與紀錄備註</h2>
+              
+              <!-- 第一排：基本資料 -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div>
+                  <label class="block text-[20px] font-bold text-gray-700 mb-2">班級 (例: 701) <span class="text-red-500">*</span></label>
+                  <input type="text" v-model="form.className" class="w-full border-gray-300 rounded p-3 border focus:ring-yellow-500 text-[20px]" placeholder="輸入班級">
+                </div>
+                <div>
+                  <label class="block text-[20px] font-bold text-gray-700 mb-2">座號</label>
+                  <input type="number" v-model="form.seatNo" class="w-full border-gray-300 rounded p-3 border focus:ring-yellow-500 text-[20px]" placeholder="輸入座號">
+                </div>
+                <div>
+                  <label class="block text-[20px] font-bold text-gray-700 mb-2">姓名 <span class="text-red-500">*</span></label>
+                  <input type="text" v-model="form.name" class="w-full border-gray-300 rounded p-3 border focus:ring-yellow-500 text-[20px]" placeholder="輸入姓名">
+                </div>
+              </div>
+
+              <!-- 第二排：狀態與備註 -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-[20px] font-bold text-gray-700 mb-2">是否改單狀態 <span class="text-red-500">*</span></label>
+                  <select v-model="form.statusOption" class="w-full border-gray-300 rounded p-3 border focus:ring-yellow-500 text-[20px] mb-3 bg-white">
+                    <option disabled value="">-- 請選擇狀態 --</option>
+                    <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
+                    <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
+                    <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
+                    <option value="4. 其他">4. 其他</option>
+                  </select>
+                  <!-- 選擇其他時手動輸入 -->
+                  <div v-if="form.statusOption === '4. 其他'" class="animate-fade-in">
+                    <input type="text" v-model="form.statusOther" placeholder="請輸入自訂狀態說明..." class="w-full border-gray-400 bg-white rounded p-3 border-2 focus:border-yellow-500 text-[20px]">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-[20px] font-bold text-gray-700 mb-2">其他備註</label>
+                  <textarea v-model="form.notes" rows="3" class="w-full border-gray-300 rounded p-3 border focus:ring-yellow-500 text-[20px]" placeholder="輸入其他備註事項..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- 提交按鈕 -->
+            <div class="text-center pb-6">
+              <button @click="submitNewRecord" :disabled="isSubmitting"
+                      class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold py-4 px-12 rounded-lg shadow-xl transition text-[24px] w-full md:w-auto">
+                <span v-if="isSubmitting">提交儲存中...</span>
+                <span v-else>確認並新增紀錄</span>
+              </button>
+            </div>
+
           </div>
 
-          <!-- 提交按鈕 -->
-          <div class="text-center pb-6">
-            <button @click="submitRecord" 
-                    :disabled="isSubmitting"
-                    class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold py-4 px-12 rounded-lg shadow-lg transition text-[24px] w-full md:w-auto">
-              <span v-if="isSubmitting">提交儲存中...</span>
-              <span v-else>確認並寫入紀錄</span>
-            </button>
+          <!-- ================= 頁籤 2: 管理歷史紀錄 ================= -->
+          <div v-show="activeTab === 'manage'">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-[24px] font-bold text-gray-800">最新歷史紀錄</h2>
+              <button @click="fetchRecords" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded transition">
+                重新整理 🔄
+              </button>
+            </div>
+            
+            <div class="overflow-x-auto border rounded-lg shadow-sm">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-slate-200">
+                  <tr>
+                    <th class="px-3 py-3 text-left font-bold text-gray-700 w-32">時間</th>
+                    <th class="px-3 py-3 text-left font-bold text-gray-700 w-24">班級</th>
+                    <th class="px-3 py-3 text-left font-bold text-gray-700 w-24">姓名</th>
+                    <th class="px-3 py-3 text-left font-bold text-gray-700 w-24">總額</th>
+                    <th class="px-3 py-3 text-left font-bold text-gray-700">狀態與備註</th>
+                    <th class="px-3 py-3 text-center font-bold text-gray-700 w-32">操作</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <tr v-if="isLoadingRecords" class="text-center">
+                    <td colspan="6" class="px-4 py-10 text-gray-500 font-bold">歷史紀錄載入中...</td>
+                  </tr>
+                  <tr v-else-if="records.length === 0" class="text-center">
+                    <td colspan="6" class="px-4 py-10 text-gray-500 font-bold">目前沒有任何紀錄</td>
+                  </tr>
+                  <tr v-for="rec in records" :key="rec.id" class="hover:bg-slate-50 transition">
+                    <td class="px-3 py-4 text-[16px] text-gray-500">{{ rec.time.split(' ')[0] }}<br>{{ rec.time.split(' ')[1] }}</td>
+                    <td class="px-3 py-4 font-bold text-gray-800">{{ rec.className }}</td>
+                    <td class="px-3 py-4 font-bold text-gray-800">{{ rec.name }}</td>
+                    <td class="px-3 py-4 font-bold text-red-600">{{ rec.totalPrice }}</td>
+                    <td class="px-3 py-4 text-[18px]">
+                      <div class="text-emerald-700 font-bold mb-1">{{ rec.statusOption }}</div>
+                      <div class="text-gray-600 line-clamp-2" :title="rec.purchasedItems">買: {{ rec.purchasedItems }}</div>
+                      <div v-if="rec.notes" class="text-yellow-700 mt-1 bg-yellow-50 p-1 rounded">備註: {{ rec.notes }}</div>
+                    </td>
+                    <td class="px-3 py-4 text-center space-y-2">
+                      <button @click="openEditModal(rec)" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-[16px]">編輯</button>
+                      <button @click="deleteRecord(rec.id)" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded text-[16px]">刪除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
         </div>
@@ -174,214 +287,257 @@
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyMHbuQznJV0e9GHn94SEWr0XoPRIgPFrOg9OqPUK100bB_cuB7VN6Ep3rG692AFWtPOQ/exec'; 
         const GOOGLE_CLIENT_ID = '553016940521-araovlp30ctbqn6um5rr49q3es5jm4jg.apps.googleusercontent.com';
         
-        // 認證相關狀態
         const isAuthenticated = ref(false);
         const userEmail = ref('');
         const authLoading = ref(true);
+        const activeTab = ref('new'); // 'new' or 'manage'
 
         const allBooks = ref([]);
-        const isLoading = ref(true);
+        const records = ref([]);
+        const isLoadingBooks = ref(true);
+        const isLoadingRecords = ref(false);
         const isSubmitting = ref(false);
         const selectedBooks = ref({});
         const toast = reactive({ show: false, message: '', type: 'success' });
 
         const form = reactive({
-          grade: '7',
-          className: '',
-          seatNo: '',
-          name: '',
-          statusOption: '',
-          notes: ''
+          grade: '7', className: '', seatNo: '', name: '', statusOption: '', statusOther: '', notes: ''
         });
 
-        // 顯示提示訊息
+        // 編輯用 Modal 狀態
+        const isEditingModalOpen = ref(false);
+        const editForm = reactive({
+          id: '', className: '', seatNo: '', name: '', purchasedItems: '', totalPrice: 0, statusBase: '', statusOther: '', notes: ''
+        });
+
         const showToast = (message, type = 'success') => {
-          toast.message = message;
-          toast.type = type;
-          toast.show = true;
-          setTimeout(() => { toast.show = false; }, 4000);
+          toast.message = message; toast.type = type; toast.show = true;
+          setTimeout(() => { toast.show = false; }, 3000);
         };
 
-        // --- Google 登入與白名單驗證邏輯 ---
-        
-        // 解析 Google 回傳的 JWT Token 取得 Email
+        // --- Auth ---
         const decodeJwtResponse = (token) => {
           let base64Url = token.split('.')[1];
           let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-          }).join(''));
+          let jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
           return JSON.parse(jsonPayload);
         };
 
-        // 後端驗證白名單
         const verifyWhitelist = async (email) => {
           authLoading.value = true;
           try {
-            const response = await fetch(`${GAS_WEB_APP_URL}?action=checkAuth&email=${encodeURIComponent(email)}`);
-            const result = await response.json();
-            
+            const res = await fetch(`${GAS_WEB_APP_URL}?action=checkAuth&email=${encodeURIComponent(email)}`);
+            const result = await res.json();
             if (result.status === 'success' && result.isAllowed) {
-              isAuthenticated.value = true;
-              userEmail.value = email;
-              localStorage.setItem('textbookSys_userEmail', email); // 登入記憶
+              isAuthenticated.value = true; userEmail.value = email;
+              localStorage.setItem('textbookSys_userEmail', email);
               showToast(`歡迎回來，${email}`);
-              fetchBooks(); // 驗證成功後載入書單
+              fetchBooks();
             } else {
-              showToast('登入失敗：您的 Google 帳號不在授權的白名單內', 'error');
-              logout();
+              showToast('帳號不在白名單內', 'error'); logout();
             }
-          } catch (error) {
-            showToast('網路錯誤，無法驗證白名單', 'error');
-            logout();
-          } finally {
-            authLoading.value = false;
-          }
+          } catch (e) { showToast('網路錯誤', 'error'); logout(); } 
+          finally { authLoading.value = false; }
         };
 
-        // 處理 Google 登入按鈕的回呼
-        window.handleCredentialResponse = async (response) => {
-          const payload = decodeJwtResponse(response.credential);
-          if(payload.email) {
-            await verifyWhitelist(payload.email);
-          }
+        window.handleCredentialResponse = async (res) => {
+          const payload = decodeJwtResponse(res.credential);
+          if(payload.email) await verifyWhitelist(payload.email);
         };
 
-        // 渲染 Google 登入按鈕
         const renderGoogleButton = () => {
           if (window.google && window.google.accounts) {
-            window.google.accounts.id.initialize({
-              client_id: GOOGLE_CLIENT_ID,
-              callback: window.handleCredentialResponse
-            });
-            window.google.accounts.id.renderButton(
-              document.getElementById("google-button-container"),
-              { theme: "outline", size: "large", type: "standard", shape: "rectangular" }
-            );
-          } else {
-            // 如果 SDK 還沒載入完，延遲重試
-            setTimeout(renderGoogleButton, 200);
-          }
+            window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: window.handleCredentialResponse });
+            window.google.accounts.id.renderButton(document.getElementById("google-button-container"), { theme: "outline", size: "large", type: "standard" });
+          } else { setTimeout(renderGoogleButton, 200); }
         };
 
-        // 登出
         const logout = () => {
-          isAuthenticated.value = false;
-          userEmail.value = '';
-          localStorage.removeItem('textbookSys_userEmail');
-          setTimeout(() => { renderGoogleButton(); }, 100);
+          isAuthenticated.value = false; userEmail.value = ''; localStorage.removeItem('textbookSys_userEmail');
+          setTimeout(() => renderGoogleButton(), 100);
         };
 
-        // --- 書單系統邏輯 ---
-
-        // 載入書單資料
+        // --- API Data Fetching ---
         const fetchBooks = async () => {
-          isLoading.value = true;
+          isLoadingBooks.value = true;
           try {
-            const response = await fetch(`${GAS_WEB_APP_URL}?action=getBooks`);
-            const result = await response.json();
-            if (result.status === 'success') {
-              allBooks.value = result.data;
-            } else {
-              showToast('書單載入失敗：' + result.message, 'error');
-            }
-          } catch (error) {
-            showToast('書單資料網路連線發生錯誤', 'error');
-          } finally {
-            isLoading.value = false;
-          }
+            const res = await fetch(`${GAS_WEB_APP_URL}?action=getBooks`);
+            const result = await res.json();
+            if (result.status === 'success') allBooks.value = result.data;
+          } catch (e) { showToast('書單載入錯誤', 'error'); } 
+          finally { isLoadingBooks.value = false; }
         };
 
-        // 計算當前年級可見的書單
-        const filteredBooks = computed(() => {
-          return allBooks.value.filter(b => b.grade === form.grade);
+        const fetchRecords = async () => {
+          isLoadingRecords.value = true;
+          try {
+            const res = await fetch(`${GAS_WEB_APP_URL}?action=getRecords`);
+            const result = await res.json();
+            if (result.status === 'success') records.value = result.data;
+          } catch (e) { showToast('紀錄載入錯誤', 'error'); } 
+          finally { isLoadingRecords.value = false; }
+        };
+
+        const switchToManageTab = () => {
+          activeTab.value = 'manage';
+          fetchRecords();
+        };
+
+        // --- Data Computation ---
+        const filteredBooks = computed(() => allBooks.value.filter(b => b.grade === form.grade));
+
+        // 判斷主科目名稱 (用於交錯底色分組)
+        const getBaseSubject = (name) => {
+           const bases = ['國文', '英語', '數學', '自然', '社會', '健體', '藝文', '綜合', '科技', '閩南'];
+           for (let b of bases) { if (name.includes(b)) return b; }
+           return name;
+        };
+
+        // 帶有自動配色邏輯的書單
+        const processedBooks = computed(() => {
+          let currentBase = '';
+          let colorFlag = true;
+          return filteredBooks.value.map(book => {
+            let base = getBaseSubject(book.subject);
+            if (base !== currentBase) {
+              currentBase = base;
+              colorFlag = !colorFlag; // 切換顏色組別
+            }
+            return {
+              ...book,
+              bgColorClass: colorFlag ? 'bg-emerald-50' : 'bg-white'
+            };
+          });
         });
 
-        // 計算勾選的總金額
+        // 取得出版社專屬 CSS class
+        const getPublisherClass = (pub) => {
+           if (pub.includes('康軒')) return 'bg-orange-100 text-orange-800 border-orange-300';
+           if (pub.includes('翰林')) return 'bg-blue-100 text-blue-800 border-blue-300';
+           if (pub.includes('南一')) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+           return 'bg-green-100 text-green-800 border-green-300'; // 真平/長鴻等
+        };
+
         const totalPrice = computed(() => {
           let sum = 0;
-          filteredBooks.value.forEach(book => {
-            if (selectedBooks.value[book.id]) {
-              sum += book.price;
-            }
-          });
+          filteredBooks.value.forEach(b => { if (selectedBooks.value[b.id]) sum += b.price; });
           return sum;
         });
 
         const handleGradeChange = () => { selectedBooks.value = {}; };
         const toggleSelection = (id) => { selectedBooks.value[id] = !selectedBooks.value[id]; };
-        const selectAll = () => { filteredBooks.value.forEach(book => { selectedBooks.value[book.id] = true; }); };
-        const deselectAll = () => { filteredBooks.value.forEach(book => { selectedBooks.value[book.id] = false; }); };
+        const selectAll = () => { filteredBooks.value.forEach(b => selectedBooks.value[b.id] = true); };
+        const deselectAll = () => { filteredBooks.value.forEach(b => selectedBooks.value[b.id] = false); };
 
-        // 送出資料
-        const submitRecord = async () => {
+        // --- CRUD Actions ---
+        const submitNewRecord = async () => {
           if (!form.className || !form.name || !form.statusOption) {
-            showToast('請確實填寫「班級」、「姓名」與「是否改單狀態」！', 'error');
-            return;
+            showToast('請確實填寫「班級」、「姓名」與「是否改單狀態」！', 'error'); return;
           }
 
           const checkedItems = filteredBooks.value.filter(b => selectedBooks.value[b.id]);
           let purchasedItemsStr = "";
-          if (checkedItems.length === 0) { purchasedItemsStr = "未購買"; } 
-          else if (checkedItems.length === filteredBooks.value.length) { purchasedItemsStr = "全買"; } 
-          else { purchasedItemsStr = checkedItems.map(b => b.subject).join(", "); }
+          if (checkedItems.length === 0) purchasedItemsStr = "未購買";
+          else if (checkedItems.length === filteredBooks.value.length) purchasedItemsStr = "全買";
+          else purchasedItemsStr = checkedItems.map(b => b.subject).join(", ");
+
+          // 組合其他狀態字串
+          let finalStatus = form.statusOption;
+          if (form.statusOption === '4. 其他' && form.statusOther.trim() !== '') {
+            finalStatus = '其他：' + form.statusOther;
+          }
 
           const payload = {
-            userEmail: userEmail.value, // 加入紀錄者信箱
-            className: form.className,
-            name: form.name,
-            seatNo: form.seatNo,
-            totalPrice: totalPrice.value,
-            purchasedItems: purchasedItemsStr,
-            statusOption: form.statusOption,
-            notes: form.notes
+            action: 'add',
+            userEmail: userEmail.value,
+            className: form.className, name: form.name, seatNo: form.seatNo,
+            totalPrice: totalPrice.value, purchasedItems: purchasedItemsStr,
+            statusOption: finalStatus, notes: form.notes
           };
 
           isSubmitting.value = true;
-          
           try {
-            const response = await fetch(GAS_WEB_APP_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            
+            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const result = await res.json();
             if (result.status === 'success') {
-              showToast('✅ 紀錄已成功寫入 Google 試算表！');
-              form.className = '';
-              form.seatNo = '';
-              form.name = '';
-              form.statusOption = '';
-              form.notes = '';
+              showToast('✅ 紀錄新增成功！');
+              form.className = ''; form.seatNo = ''; form.name = ''; 
+              form.statusOption = ''; form.statusOther = ''; form.notes = '';
               deselectAll();
-            } else {
-              showToast('❌ 寫入失敗：' + result.message, 'error');
-            }
-          } catch (error) {
-            showToast('❌ 發生錯誤，無法連接至伺服器', 'error');
-          } finally {
-            isSubmitting.value = false;
-          }
+            } else showToast('❌ 錯誤：' + result.message, 'error');
+          } catch (e) { showToast('❌ 連線錯誤', 'error'); } 
+          finally { isSubmitting.value = false; }
         };
 
-        // 系統初始化
-        onMounted(() => {
-          // 檢查是否有登入記憶
-          const savedEmail = localStorage.getItem('textbookSys_userEmail');
-          if (savedEmail) {
-            verifyWhitelist(savedEmail);
+        const deleteRecord = async (id) => {
+          if(!confirm('確定要刪除這筆紀錄嗎？刪除後無法恢復。')) return;
+          try {
+            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+            const result = await res.json();
+            if (result.status === 'success') {
+              showToast('🗑️ 紀錄已刪除'); fetchRecords();
+            } else showToast('刪除失敗', 'error');
+          } catch (e) { showToast('連線錯誤', 'error'); }
+        };
+
+        const openEditModal = (rec) => {
+          editForm.id = rec.id;
+          editForm.className = rec.className;
+          editForm.seatNo = rec.seatNo;
+          editForm.name = rec.name;
+          editForm.purchasedItems = rec.purchasedItems;
+          editForm.totalPrice = rec.totalPrice;
+          editForm.notes = rec.notes;
+          
+          if (rec.statusOption && rec.statusOption.startsWith('其他：')) {
+            editForm.statusBase = '4. 其他';
+            editForm.statusOther = rec.statusOption.replace('其他：', '');
+          } else if (['1. 他校轉入，買部分，未註冊，須改單', '2. 他校轉入，買全部，未註冊，不須改單', '3. 轉出他校，已簽名，未註冊，出納繳費'].includes(rec.statusOption)) {
+            editForm.statusBase = rec.statusOption;
+            editForm.statusOther = '';
           } else {
-            authLoading.value = false;
-            // 稍等 DOM 渲染後掛載 Google 按鈕
-            setTimeout(() => { renderGoogleButton(); }, 100);
+            editForm.statusBase = '4. 其他';
+            editForm.statusOther = rec.statusOption;
           }
+          isEditingModalOpen.value = true;
+        };
+
+        const submitEditRecord = async () => {
+          let finalStatus = editForm.statusBase;
+          if (editForm.statusBase === '4. 其他' && editForm.statusOther.trim() !== '') {
+            finalStatus = '其他：' + editForm.statusOther;
+          }
+          const payload = {
+            action: 'update',
+            id: editForm.id,
+            className: editForm.className, name: editForm.name, seatNo: editForm.seatNo,
+            purchasedItems: editForm.purchasedItems, totalPrice: editForm.totalPrice,
+            statusOption: finalStatus, notes: editForm.notes
+          };
+          try {
+            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const result = await res.json();
+            if (result.status === 'success') {
+              showToast('✅ 更新成功！');
+              isEditingModalOpen.value = false;
+              fetchRecords();
+            } else showToast('更新失敗', 'error');
+          } catch (e) { showToast('連線錯誤', 'error'); }
+        };
+
+        onMounted(() => {
+          const savedEmail = localStorage.getItem('textbookSys_userEmail');
+          if (savedEmail) verifyWhitelist(savedEmail);
+          else { authLoading.value = false; setTimeout(() => renderGoogleButton(), 100); }
         });
 
         return {
-          isAuthenticated, userEmail, authLoading, logout,
-          allBooks, isLoading, isSubmitting, selectedBooks, form, toast, filteredBooks, totalPrice,
-          handleGradeChange, toggleSelection, selectAll, deselectAll, submitRecord
+          isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
+          allBooks, processedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
+          selectedBooks, form, toast, totalPrice, getPublisherClass,
+          handleGradeChange, toggleSelection, selectAll, deselectAll, 
+          submitNewRecord, fetchRecords, deleteRecord, 
+          isEditingModalOpen, editForm, openEditModal, submitEditRecord
         };
       }
     }).mount('#app');
