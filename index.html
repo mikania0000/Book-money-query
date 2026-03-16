@@ -10,10 +10,8 @@
   <style>
     html { font-size: 20px; }
     body { font-size: 1rem; } 
-    /* 微調核取方塊尺寸，符合緊湊版面 */
     .custom-checkbox { width: 1.25rem; height: 1.25rem; accent-color: #059669; cursor: pointer; }
     [v-cloak] { display: none; }
-    /* 隱藏滾動條但保持可滾動 */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
@@ -156,10 +154,16 @@
           <p class="text-[22px] font-bold text-gray-600">系統載入與身分驗證中...</p>
         </div>
 
-        <!-- 登入畫面 -->
-        <div v-else-if="!isAuthenticated" class="max-w-md mx-auto bg-slate-50 p-8 rounded-xl border border-slate-200 text-center my-10">
-          <h2 class="text-[28px] font-bold mb-4 text-emerald-800">人員登入</h2>
-          <p class="mb-8 text-[20px] text-gray-600">請使用已授權的 Google 帳號登入系統</p>
+        <!-- ✅ 全新安全登入畫面：動態輸入密碼 + Google 登入 -->
+        <div v-else-if="!isAuthenticated" class="max-w-md mx-auto bg-slate-50 p-8 rounded-xl border border-slate-200 text-center my-10 shadow-sm">
+          <h2 class="text-[28px] font-bold mb-2 text-emerald-800">行政人員登入</h2>
+          <p class="mb-6 text-[18px] text-gray-500">請先輸入系統密碼，再以 Google 帳號登入</p>
+          
+          <div class="mb-6">
+            <input type="password" v-model="apiSecret" placeholder="請輸入系統管理密碼" 
+                   class="w-full border-2 border-gray-300 rounded-lg p-3 text-[20px] focus:border-emerald-500 focus:outline-none text-center">
+          </div>
+
           <div id="google-button-container" class="flex justify-center min-h-[50px]"></div>
         </div>
 
@@ -250,7 +254,7 @@
               <!-- 右側統計區 -->
               <div class="w-full lg:w-5/12 shrink-0 flex flex-col gap-6 relative">
                 
-                <!-- 卡片 1: 目前勾選總計 (標頭冷凍: 獨立 sticky) -->
+                <!-- 卡片 1: 目前勾選總計 (標頭冷凍) -->
                 <div class="sticky top-6 z-30 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex-none">
                   <div class="bg-emerald-600 text-white p-4 text-center">
                     <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
@@ -448,7 +452,9 @@
       setup() {
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyMHbuQznJV0e9GHn94SEWr0XoPRIgPFrOg9OqPUK100bB_cuB7VN6Ep3rG692AFWtPOQ/exec'; 
         const GOOGLE_CLIENT_ID = '553016940521-araovlp30ctbqn6um5rr49q3es5jm4jg.apps.googleusercontent.com';
-        const API_SECRET = 'FjmTextbook2026'; // ✅ 新增：系統專屬安全金鑰，必須與 GAS 後端一致
+        
+        // ✅ 移除硬編碼，改用動態綁定的密碼變數
+        const apiSecret = ref(''); 
         
         const isAuthenticated = ref(false);
         const userEmail = ref('');
@@ -468,7 +474,6 @@
           grade: '7', className: '', seatNo: '', name: '', statusOption: '', statusOther: '', notes: ''
         });
 
-        // 編輯 Modal 專屬變數
         const isEditingModalOpen = ref(false);
         const editSelectedBooks = ref({});
         const editForm = reactive({
@@ -495,27 +500,41 @@
           return JSON.parse(jsonPayload);
         };
 
-        const verifyWhitelist = async (email) => {
+        // ✅ 將手動輸入的密碼跟著 Email 一起送到後端驗證
+        const verifyWhitelist = async (email, secretCode) => {
           authLoading.value = true;
           try {
-            // ✅ 網址後面加上 secret 金鑰參數
-            const res = await fetch(`${GAS_WEB_APP_URL}?action=checkAuth&email=${encodeURIComponent(email)}&secret=${API_SECRET}`);
+            const res = await fetch(`${GAS_WEB_APP_URL}?action=checkAuth&email=${encodeURIComponent(email)}&secret=${encodeURIComponent(secretCode)}`);
             const result = await res.json();
             if (result.status === 'success' && result.isAllowed) {
-              isAuthenticated.value = true; userEmail.value = email;
+              isAuthenticated.value = true; 
+              userEmail.value = email;
+              // 登入成功後，把資料記憶在瀏覽器，下次就不用重打密碼
               localStorage.setItem('textbookSys_userEmail', email);
+              localStorage.setItem('textbookSys_secret', secretCode);
+              
               showToast(`歡迎回來，${email}`);
               fetchBooks();
             } else {
-              showToast('帳號不在白名單內', 'error'); logout();
+              showToast('帳號不在白名單內或密碼錯誤！', 'error'); 
+              logout();
             }
-          } catch (e) { showToast('網路錯誤', 'error'); logout(); } 
+          } catch (e) { 
+            showToast('網路錯誤', 'error'); 
+            logout(); 
+          } 
           finally { authLoading.value = false; }
         };
 
+        // Google 登入回呼函式
         window.handleCredentialResponse = async (res) => {
+          // 檢查老師有沒有先在框框輸入密碼
+          if (!apiSecret.value) {
+            showToast('請先輸入系統管理密碼！', 'error');
+            return;
+          }
           const payload = decodeJwtResponse(res.credential);
-          if(payload.email) await verifyWhitelist(payload.email);
+          if(payload.email) await verifyWhitelist(payload.email, apiSecret.value);
         };
 
         const renderGoogleButton = () => {
@@ -526,7 +545,11 @@
         };
 
         const logout = () => {
-          isAuthenticated.value = false; userEmail.value = ''; localStorage.removeItem('textbookSys_userEmail');
+          isAuthenticated.value = false; 
+          userEmail.value = ''; 
+          apiSecret.value = ''; // 登出時清空密碼
+          localStorage.removeItem('textbookSys_userEmail');
+          localStorage.removeItem('textbookSys_secret');
           setTimeout(() => renderGoogleButton(), 100);
         };
 
@@ -549,8 +572,8 @@
         const fetchRecords = async () => {
           isLoadingRecords.value = true;
           try {
-            // ✅ 網址後面加上 secret 金鑰參數
-            const res = await fetch(`${GAS_WEB_APP_URL}?action=getRecords&secret=${API_SECRET}`);
+            // ✅ 帶著記憶體中的密碼去抓紀錄
+            const res = await fetch(`${GAS_WEB_APP_URL}?action=getRecords&secret=${encodeURIComponent(apiSecret.value)}`);
             const result = await res.json();
             if (result.status === 'success') records.value = result.data;
           } catch (e) { showToast('紀錄載入錯誤', 'error'); } 
@@ -645,7 +668,7 @@
           }
 
           const payload = {
-            secret: API_SECRET, // ✅ 打包資料時加入金鑰
+            secret: apiSecret.value, // ✅ 打包資料時加入手動輸入的金鑰
             action: 'add',
             userEmail: userEmail.value,
             className: form.className, name: form.name, seatNo: form.seatNo,
@@ -676,7 +699,7 @@
           isDeleteModalOpen.value = false; 
           try {
             // ✅ 刪除指令加入金鑰
-            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id: deleteTargetId.value, secret: API_SECRET }) });
+            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id: deleteTargetId.value, secret: apiSecret.value }) });
             const result = await res.json();
             if (result.status === 'success') {
               showToast('🗑️ 紀錄已刪除'); fetchRecords();
@@ -751,7 +774,7 @@
           else newPurchasedItemsStr = checkedBooks.map(b => b.subject).join(", ");
 
           const payload = {
-            secret: API_SECRET, // ✅ 修改資料時加入金鑰
+            secret: apiSecret.value, // ✅ 修改資料時加入金鑰
             action: 'update', id: editForm.id,
             className: editForm.className, name: editForm.name, seatNo: editForm.seatNo,
             purchasedItems: newPurchasedItemsStr, totalPrice: editForm.totalPrice,
@@ -767,13 +790,22 @@
         };
 
         onMounted(() => {
+          // 檢查瀏覽器有沒有記憶上次登入成功的帳號與密碼
           const savedEmail = localStorage.getItem('textbookSys_userEmail');
-          if (savedEmail) verifyWhitelist(savedEmail);
-          else { authLoading.value = false; setTimeout(() => renderGoogleButton(), 100); }
+          const savedSecret = localStorage.getItem('textbookSys_secret');
+          
+          if (savedEmail && savedSecret) {
+            apiSecret.value = savedSecret; // 自動帶入密碼
+            verifyWhitelist(savedEmail, savedSecret);
+          } else { 
+            authLoading.value = false; 
+            setTimeout(() => renderGoogleButton(), 100); 
+          }
         });
 
         return {
           isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
+          apiSecret, // ✅ 匯出密碼變數供畫面輸入使用
           systemTitle,
           allBooks, processedBooks, allProcessedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
           selectedBooks, form, toast, totalPrice, getPublisherClass,
