@@ -10,7 +10,8 @@
   <style>
     html { font-size: 20px; }
     body { font-size: 1rem; } 
-    .custom-checkbox { width: 1.5rem; height: 1.5rem; accent-color: #059669; cursor: pointer; }
+    /* 微調核取方塊尺寸，符合緊湊版面 */
+    .custom-checkbox { width: 1.25rem; height: 1.25rem; accent-color: #059669; cursor: pointer; }
     [v-cloak] { display: none; }
     /* 隱藏滾動條但保持可滾動 */
     .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -20,7 +21,7 @@
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen p-2 md:p-4 font-sans text-gray-800 tracking-wide">
-  <div id="app" v-cloak class="max-w-6xl mx-auto">
+  <div id="app" v-cloak class="max-w-[1400px] mx-auto">
     
     <!-- 提示訊息 Toast -->
     <div v-if="toast.show" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded shadow-xl text-white font-bold transition-all text-[20px]"
@@ -28,7 +29,7 @@
       {{ toast.message }}
     </div>
 
-    <!-- 🌟 新增：0元確認警告 Modal -->
+    <!-- 0元確認警告 Modal -->
     <div v-if="isConfirmModalOpen" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-7">
         <div class="flex items-center gap-3 mb-4 border-b-2 border-yellow-500 pb-3">
@@ -113,174 +114,179 @@
         <!-- 系統主要內容 -->
         <div v-else>
           
-          <!-- 頁籤切換 -->
-          <div class="flex border-b-2 border-emerald-200 mb-6">
+          <!-- 頁籤切換 (新增第三頁籤) -->
+          <div class="flex flex-wrap gap-2 border-b-2 border-emerald-200 mb-6">
             <button @click="activeTab = 'new'" class="px-6 py-3 font-bold text-[22px] transition" :class="activeTab === 'new' ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-600 rounded-t-lg' : 'text-gray-500 hover:bg-gray-50'">
               新增紀錄
             </button>
             <button @click="switchToManageTab" class="px-6 py-3 font-bold text-[22px] transition" :class="activeTab === 'manage' ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-600 rounded-t-lg' : 'text-gray-500 hover:bg-gray-50'">
               管理歷史紀錄
             </button>
+            <button @click="activeTab = 'allBooks'" class="px-6 py-3 font-bold text-[22px] transition" :class="activeTab === 'allBooks' ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-600 rounded-t-lg' : 'text-gray-500 hover:bg-gray-50'">
+              教科書價格總表
+            </button>
           </div>
 
           <!-- ================= 頁籤 1: 新增紀錄 ================= -->
-          <div v-show="activeTab === 'new'" class="flex flex-col lg:flex-row gap-6 items-start">
+          <div v-show="activeTab === 'new'">
             
-            <!-- 左側主內容區 -->
-            <div class="flex-1 w-full min-w-0">
+            <!-- 上半部：左右分割 (書單 & 統計) -->
+            <div class="flex flex-col lg:flex-row gap-8 items-start mb-6">
               
-              <div class="flex flex-col md:flex-row items-center justify-between mb-4 gap-4 bg-slate-50 p-4 rounded-lg border">
-                <div class="flex items-center gap-4 w-full md:w-auto">
-                  <label class="text-[20px] font-bold text-gray-800 whitespace-nowrap">選擇年級：</label>
-                  <select v-model="form.grade" @change="handleGradeChange" class="w-full md:w-48 border-gray-300 rounded p-2.5 border focus:ring-emerald-500 focus:border-emerald-500 text-[20px] shadow-sm font-bold text-emerald-800 bg-white">
-                    <option value="7">七年級</option>
-                    <option value="8">八年級</option>
-                    <option value="9">九年級</option>
-                  </select>
-                </div>
-
-                <div class="flex space-x-3 w-full md:w-auto">
-                  <button @click="selectAll" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded text-[18px] font-bold transition shadow">全選</button>
-                  <button @click="deselectAll" class="flex-1 md:flex-none bg-gray-500 hover:bg-gray-600 text-white px-6 py-2.5 rounded text-[18px] font-bold transition shadow">全部取消</button>
-                </div>
-              </div>
-
-              <!-- 書單表格 -->
-              <div class="overflow-y-auto overflow-x-auto border rounded-lg mb-6 shadow-sm max-h-[55vh] relative no-scrollbar bg-white">
-                <table class="min-w-full divide-y divide-gray-200">
-                  <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm text-left">
-                    <tr>
-                      <th class="px-3 py-2 text-center font-bold text-gray-800 w-[60px] text-[18px]">勾選</th>
-                      <th class="px-4 py-2 font-bold text-gray-800 w-[220px] text-[18px]">科目 / 書名</th>
-                      <th class="px-4 py-2 font-bold text-gray-800 w-[140px] text-[18px]">出版社</th>
-                      <th class="px-4 py-2 text-right font-bold text-gray-800 w-[100px] text-[18px]">單價</th>
-                      <th class="px-4 py-2 w-auto"></th> <!-- 空白佔位欄位 -->
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-200">
-                    <tr v-if="isLoadingBooks" class="text-center bg-white">
-                      <td colspan="5" class="px-4 py-6 text-gray-500 font-bold text-[18px]">書單資料載入中...</td>
-                    </tr>
-                    <tr v-else-if="processedBooks.length === 0" class="text-center bg-white">
-                      <td colspan="5" class="px-4 py-6 text-gray-500 font-bold text-[18px]">該年級目前無書單資料</td>
-                    </tr>
-                    <tr v-for="(book, index) in processedBooks" :key="book.id" 
-                        :class="[book.bgColorClass, 'hover:brightness-95 transition cursor-pointer']"
-                        @click="toggleSelection(book.id)">
-                      <td class="px-3 py-2 text-center" @click.stop>
-                        <input type="checkbox" v-model="selectedBooks[book.id]" class="custom-checkbox mt-1">
-                      </td>
-                      <td class="px-4 py-2 font-bold text-gray-800 text-[20px]">{{ book.subject }}</td>
-                      <td class="px-4 py-2">
-                        <span :class="getPublisherClass(book.publisher)" class="px-2 py-1 border rounded font-bold text-[16px] inline-block shadow-sm">
-                          {{ book.publisher }}
-                        </span>
-                      </td>
-                      <td class="px-4 py-2 text-right font-black text-emerald-700 text-[20px]">{{ book.price }}</td>
-                      <td class="px-4 py-2"></td>
-                    </tr>
-                  </tbody>
-                  <tfoot class="bg-emerald-50 border-t-4 border-emerald-400 sticky bottom-0 z-10 shadow-[0_-2px_6px_rgba(0,0,0,0.05)]">
-                    <tr>
-                      <td colspan="3" class="px-4 py-2 text-right font-bold text-gray-800 text-[20px]">勾選總計：</td>
-                      <td class="px-4 py-2 text-right font-black text-red-600 text-[24px]">{{ totalPrice }}</td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              <!-- 學生資料與備註區 -->
-              <div class="bg-yellow-50 p-5 rounded-xl border-2 border-yellow-300 mb-6 shadow-sm">
-                <h2 class="text-[20px] font-bold text-gray-800 border-l-8 border-yellow-500 pl-3 mb-4">學生資料與紀錄備註</h2>
+              <!-- 左側主內容區 (書單) -->
+              <div class="flex-1 w-full lg:w-7/12 min-w-0">
                 
-                <!-- 第一排：基本資料 (加入費用欄位) -->
-                <div class="flex flex-wrap gap-4 mb-5 items-end">
-                  <div class="w-[120px]">
-                    <label class="block text-[18px] font-bold text-gray-700 mb-1.5">班級(例:701) <span class="text-red-500">*</span></label>
-                    <input type="text" v-model="form.className" class="w-full border-gray-300 rounded p-2 border focus:ring-yellow-500 text-[18px]" placeholder="輸入">
-                  </div>
-                  <div class="w-[80px]">
-                    <label class="block text-[18px] font-bold text-gray-700 mb-1.5">座號</label>
-                    <input type="number" v-model="form.seatNo" class="w-full border-gray-300 rounded p-2 border focus:ring-yellow-500 text-[18px]" placeholder="座號">
-                  </div>
-                  <div class="w-[180px]">
-                    <label class="block text-[18px] font-bold text-gray-700 mb-1.5">姓名 <span class="text-red-500">*</span></label>
-                    <input type="text" v-model="form.name" class="w-full border-gray-300 rounded p-2 border focus:ring-yellow-500 text-[18px]" placeholder="輸入姓名">
-                  </div>
-                  <!-- 🌟 新增：費用同步顯示 (Readonly) -->
-                  <div class="w-[120px]">
-                    <label class="block text-[18px] font-bold text-gray-700 mb-1.5">總費用 (元)</label>
-                    <div class="w-full bg-yellow-100 border-yellow-400 rounded p-2 border text-[18px] font-black text-red-600 text-right cursor-not-allowed shadow-inner">
-                      {{ totalPrice }}
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 第二排：狀態與備註 -->
-                <div class="flex flex-wrap gap-5">
-                  <div class="w-full md:w-[380px]">
-                    <label class="block text-[18px] font-bold text-gray-700 mb-1.5">是否改單狀態 <span class="text-red-500">*</span></label>
-                    <select v-model="form.statusOption" class="w-full border-gray-300 rounded p-2 border focus:ring-yellow-500 text-[18px] mb-2 bg-white">
-                      <option disabled value="">-- 請選擇狀態 --</option>
-                      <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
-                      <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
-                      <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
-                      <option value="4. 其他">4. 其他</option>
+                <div class="flex flex-col md:flex-row items-center justify-between mb-4 gap-4 bg-slate-50 p-3 rounded-lg border">
+                  <div class="flex items-center gap-4 w-full md:w-auto">
+                    <label class="text-[20px] font-bold text-gray-800 whitespace-nowrap">選擇年級：</label>
+                    <select v-model="form.grade" @change="handleGradeChange" class="w-full md:w-48 border-gray-300 rounded p-2.5 border focus:ring-emerald-500 focus:border-emerald-500 text-[20px] shadow-sm font-bold text-emerald-800 bg-white">
+                      <option value="7">七年級</option>
+                      <option value="8">八年級</option>
+                      <option value="9">九年級</option>
                     </select>
-                    <div v-if="form.statusOption === '4. 其他'" class="animate-fade-in mt-2">
-                      <input type="text" v-model="form.statusOther" placeholder="請輸入自訂狀態說明..." class="w-full border-gray-400 bg-white rounded p-2 border-2 focus:border-yellow-500 text-[18px]">
-                    </div>
                   </div>
-                  <div class="flex-1 min-w-[260px]">
-                    <label class="block text-[18px] font-bold text-gray-700 mb-1.5">其他備註</label>
-                    <textarea v-model="form.notes" rows="2" class="w-full border-gray-300 rounded p-2 border focus:ring-yellow-500 text-[18px]" placeholder="輸入其他備註事項..."></textarea>
+
+                  <div class="flex space-x-3 w-full md:w-auto">
+                    <button @click="selectAll" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-[18px] font-bold transition shadow">全選</button>
+                    <button @click="deselectAll" class="flex-1 md:flex-none bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded text-[18px] font-bold transition shadow">全部取消</button>
                   </div>
+                </div>
+
+                <!-- 書單表格 (高度緊湊排版) -->
+                <div class="overflow-y-auto overflow-x-auto border rounded-lg shadow-sm max-h-[60vh] relative no-scrollbar bg-white">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm text-left">
+                      <tr>
+                        <th class="px-2 py-2 text-center font-bold text-gray-800 w-[60px] text-[18px]">勾選</th>
+                        <th class="px-3 py-2 font-bold text-gray-800 text-[18px]">科目 / 書名</th>
+                        <th class="px-3 py-2 font-bold text-gray-800 w-[120px] text-[18px]">出版社</th>
+                        <th class="px-3 py-2 text-right font-bold text-gray-800 w-[100px] text-[18px]">單價</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                      <tr v-if="isLoadingBooks" class="text-center bg-white">
+                        <td colspan="4" class="px-4 py-6 text-gray-500 font-bold text-[18px]">書單資料載入中...</td>
+                      </tr>
+                      <tr v-else-if="processedBooks.length === 0" class="text-center bg-white">
+                        <td colspan="4" class="px-4 py-6 text-gray-500 font-bold text-[18px]">該年級目前無書單資料</td>
+                      </tr>
+                      <!-- 使用 py-1.5 達成緊湊效果 -->
+                      <tr v-for="(book, index) in processedBooks" :key="book.id" 
+                          :class="[book.bgColorClass, 'hover:brightness-95 transition cursor-pointer']"
+                          @click="toggleSelection(book.id)">
+                        <td class="px-2 py-1.5 text-center" @click.stop>
+                          <input type="checkbox" v-model="selectedBooks[book.id]" class="custom-checkbox mt-1">
+                        </td>
+                        <td class="px-3 py-1.5 font-bold text-gray-800 text-[18px]">{{ book.subject }}</td>
+                        <td class="px-3 py-1.5">
+                          <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[15px] inline-block shadow-sm">
+                            {{ book.publisher }}
+                          </span>
+                        </td>
+                        <td class="px-3 py-1.5 text-right font-black text-emerald-700 text-[18px]">{{ book.price }}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot class="bg-emerald-50 border-t-4 border-emerald-400 sticky bottom-0 z-10 shadow-[0_-2px_6px_rgba(0,0,0,0.05)]">
+                      <tr>
+                        <td colspan="3" class="px-3 py-2 text-right font-bold text-gray-800 text-[20px]">勾選總計：</td>
+                        <td class="px-3 py-2 text-right font-black text-red-600 text-[24px]">{{ totalPrice }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               </div>
 
-              <!-- 提交按鈕 -->
-              <div class="text-center pb-6">
-                <button @click="handlePreSubmit" :disabled="isSubmitting"
-                        class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold py-3 px-12 rounded-lg shadow-xl transition text-[22px] w-full md:w-auto">
-                  <span v-if="isSubmitting">提交儲存中...</span>
-                  <span v-else>確認並新增紀錄</span>
-                </button>
-              </div>
+              <!-- 右側統計區 (側邊欄放大) -->
+              <div class="w-full lg:w-5/12 shrink-0 sticky top-6 space-y-6">
+                
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                  <div class="bg-emerald-600 text-white p-4 text-center">
+                    <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
+                  </div>
+                  <div class="p-6 text-center">
+                    <!-- 總價金額字體明顯放大 -->
+                    <div class="text-[60px] font-black text-red-600 leading-none drop-shadow-sm">{{ totalPrice }}</div>
+                    <div class="text-[18px] text-gray-500 font-bold mt-3">新台幣 (元)</div>
+                  </div>
+                </div>
 
+                <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-6">
+                  <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-5">各年級全套總價參考</h3>
+                  <div class="space-y-4">
+                    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                      <span class="font-bold text-gray-700 text-[20px]">七年級</span>
+                      <span class="font-bold text-blue-700 text-[24px]">{{ grade7Total }} <span class="text-[16px]">元</span></span>
+                    </div>
+                    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                      <span class="font-bold text-gray-700 text-[20px]">八年級</span>
+                      <span class="font-bold text-blue-700 text-[24px]">{{ grade8Total }} <span class="text-[16px]">元</span></span>
+                    </div>
+                    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
+                      <span class="font-bold text-gray-700 text-[20px]">九年級</span>
+                      <span class="font-bold text-blue-700 text-[24px]">{{ grade9Total }} <span class="text-[16px]">元</span></span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
 
-            <!-- 右側統計區 (側邊欄) -->
-            <div class="w-full lg:w-[300px] shrink-0 sticky top-6 space-y-5">
+            <!-- 下半部：學生資料與備註區 (全寬撐滿) -->
+            <div class="bg-yellow-50 p-6 rounded-xl border-2 border-yellow-300 mb-6 shadow-sm w-full">
+              <h2 class="text-[22px] font-bold text-gray-800 border-l-8 border-yellow-500 pl-3 mb-5">學生資料與紀錄備註</h2>
               
-              <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-                <div class="bg-emerald-600 text-white p-3 text-center">
-                  <h3 class="text-[20px] font-bold tracking-wider">目前勾選總計</h3>
+              <!-- 第一排：基本資料 -->
+              <div class="flex flex-wrap gap-4 mb-6 items-end">
+                <div class="w-[140px]">
+                  <label class="block text-[18px] font-bold text-gray-700 mb-1.5">班級(例:701) <span class="text-red-500">*</span></label>
+                  <input type="text" v-model="form.className" class="w-full border-gray-300 rounded p-2.5 border focus:ring-yellow-500 text-[18px]" placeholder="輸入">
                 </div>
-                <div class="p-5 text-center">
-                  <div class="text-[44px] font-black text-red-600 leading-none">{{ totalPrice }}</div>
-                  <div class="text-[16px] text-gray-500 font-bold mt-2">新台幣 (元)</div>
+                <div class="w-[100px]">
+                  <label class="block text-[18px] font-bold text-gray-700 mb-1.5">座號</label>
+                  <input type="number" v-model="form.seatNo" class="w-full border-gray-300 rounded p-2.5 border focus:ring-yellow-500 text-[18px]" placeholder="座號">
                 </div>
-              </div>
-
-              <div class="bg-blue-50 rounded-xl shadow-sm border border-blue-200 p-5">
-                <h3 class="text-[18px] font-bold text-blue-900 border-l-4 border-blue-500 pl-3 mb-4">各年級全套總價參考</h3>
-                <div class="space-y-3">
-                  <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
-                    <span class="font-bold text-gray-700 text-[18px]">七年級</span>
-                    <span class="font-bold text-blue-700 text-[20px]">{{ grade7Total }} <span class="text-[14px]">元</span></span>
-                  </div>
-                  <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
-                    <span class="font-bold text-gray-700 text-[18px]">八年級</span>
-                    <span class="font-bold text-blue-700 text-[20px]">{{ grade8Total }} <span class="text-[14px]">元</span></span>
-                  </div>
-                  <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
-                    <span class="font-bold text-gray-700 text-[18px]">九年級</span>
-                    <span class="font-bold text-blue-700 text-[20px]">{{ grade9Total }} <span class="text-[14px]">元</span></span>
+                <div class="flex-1 min-w-[200px] max-w-[300px]">
+                  <label class="block text-[18px] font-bold text-gray-700 mb-1.5">姓名 <span class="text-red-500">*</span></label>
+                  <input type="text" v-model="form.name" class="w-full border-gray-300 rounded p-2.5 border focus:ring-yellow-500 text-[18px]" placeholder="輸入姓名">
+                </div>
+                <!-- 費用同步顯示 -->
+                <div class="w-[140px]">
+                  <label class="block text-[18px] font-bold text-gray-700 mb-1.5">總費用 (元)</label>
+                  <div class="w-full bg-yellow-100 border-yellow-400 rounded p-2.5 border text-[18px] font-black text-red-600 text-right cursor-not-allowed shadow-inner">
+                    {{ totalPrice }}
                   </div>
                 </div>
               </div>
 
+              <!-- 第二排：狀態與備註 -->
+              <div class="flex flex-wrap gap-6">
+                <div class="w-full md:w-[400px]">
+                  <label class="block text-[18px] font-bold text-gray-700 mb-1.5">是否改單狀態 <span class="text-red-500">*</span></label>
+                  <select v-model="form.statusOption" class="w-full border-gray-300 rounded p-2.5 border focus:ring-yellow-500 text-[18px] mb-2 bg-white">
+                    <option disabled value="">-- 請選擇狀態 --</option>
+                    <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
+                    <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
+                    <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
+                    <option value="4. 其他">4. 其他</option>
+                  </select>
+                  <div v-if="form.statusOption === '4. 其他'" class="animate-fade-in mt-2">
+                    <input type="text" v-model="form.statusOther" placeholder="請輸入自訂狀態說明..." class="w-full border-gray-400 bg-white rounded p-2.5 border-2 focus:border-yellow-500 text-[18px]">
+                  </div>
+                </div>
+                <div class="flex-1 min-w-[300px]">
+                  <label class="block text-[18px] font-bold text-gray-700 mb-1.5">其他備註</label>
+                  <textarea v-model="form.notes" rows="2" class="w-full border-gray-300 rounded p-2.5 border focus:ring-yellow-500 text-[18px]" placeholder="輸入其他備註事項..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- 提交按鈕 -->
+            <div class="text-center pb-6">
+              <button @click="handlePreSubmit" :disabled="isSubmitting"
+                      class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold py-4 px-16 rounded-xl shadow-xl transition text-[24px] w-full md:w-auto transform hover:scale-105">
+                <span v-if="isSubmitting">提交儲存中...</span>
+                <span v-else>確認並新增紀錄</span>
+              </button>
             </div>
 
           </div>
@@ -333,6 +339,45 @@
             </div>
           </div>
 
+          <!-- ================= 頁籤 3: 全部教科書價格總表 ================= -->
+          <div v-show="activeTab === 'allBooks'">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-[24px] font-bold text-gray-800">全部教科書價格總表 (7~9年級)</h2>
+            </div>
+            
+            <div class="overflow-y-auto overflow-x-auto border rounded-lg shadow-sm max-h-[75vh] no-scrollbar bg-white">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm text-left">
+                  <tr>
+                    <th class="px-4 py-3 font-bold text-gray-800 text-[18px] w-[100px]">年級</th>
+                    <th class="px-4 py-3 font-bold text-gray-800 text-[18px]">科目 / 書名</th>
+                    <th class="px-4 py-3 font-bold text-gray-800 text-[18px] w-[140px]">出版社</th>
+                    <th class="px-4 py-3 text-right font-bold text-gray-800 text-[18px] w-[120px]">單價</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  <tr v-if="isLoadingBooks" class="text-center bg-white">
+                    <td colspan="4" class="px-4 py-10 text-gray-500 font-bold text-[18px]">書單資料載入中...</td>
+                  </tr>
+                  <tr v-else-if="allProcessedBooks.length === 0" class="text-center bg-white">
+                    <td colspan="4" class="px-4 py-10 text-gray-500 font-bold text-[18px]">目前無任何書單資料</td>
+                  </tr>
+                  <!-- 緊湊排列全校書單 -->
+                  <tr v-for="(book, index) in allProcessedBooks" :key="'all-'+book.id" class="hover:bg-slate-50 transition" :class="book.bgColorClass">
+                    <td class="px-4 py-1.5 font-bold text-emerald-800 text-[18px] whitespace-nowrap">{{ book.grade }} 年級</td>
+                    <td class="px-4 py-1.5 font-bold text-gray-800 text-[18px]">{{ book.subject }}</td>
+                    <td class="px-4 py-1.5">
+                      <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[15px] inline-block shadow-sm">
+                        {{ book.publisher }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-1.5 text-right font-black text-emerald-700 text-[18px]">{{ book.price }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -349,7 +394,7 @@
         const isAuthenticated = ref(false);
         const userEmail = ref('');
         const authLoading = ref(true);
-        const activeTab = ref('new'); // 'new' or 'manage'
+        const activeTab = ref('new'); // 'new', 'manage', 'allBooks'
 
         const allBooks = ref([]);
         const records = ref([]);
@@ -368,7 +413,6 @@
           id: '', className: '', seatNo: '', name: '', purchasedItems: '', totalPrice: 0, statusBase: '', statusOther: '', notes: ''
         });
 
-        // 🌟 新增：0元確認視窗控制
         const isConfirmModalOpen = ref(false);
 
         const showToast = (message, type = 'success') => {
@@ -453,11 +497,26 @@
            return name;
         };
 
+        // 目前年級的加工書單 (給「新增紀錄」使用)
         const processedBooks = computed(() => {
           let currentBase = '';
           let colorFlag = true;
           return filteredBooks.value.map(book => {
             let base = getBaseSubject(book.subject);
+            if (base !== currentBase) {
+              currentBase = base; colorFlag = !colorFlag; 
+            }
+            return { ...book, bgColorClass: colorFlag ? 'bg-emerald-50' : 'bg-white' };
+          });
+        });
+
+        // 🌟 新增：全校所有書單的加工版 (給「價格總表」使用，依照年級與科目區分底色)
+        const allProcessedBooks = computed(() => {
+          let currentBase = '';
+          let colorFlag = true;
+          return allBooks.value.map(book => {
+            // 加上年級前綴，確保換年級時底色邏輯能正確重新計算
+            let base = book.grade + '_' + getBaseSubject(book.subject);
             if (base !== currentBase) {
               currentBase = base; colorFlag = !colorFlag; 
             }
@@ -488,8 +547,6 @@
         const deselectAll = () => { filteredBooks.value.forEach(b => selectedBooks.value[b.id] = false); };
 
         // --- CRUD Actions ---
-
-        // 🌟 新增：點擊新增前的攔截器 (0元防呆)
         const handlePreSubmit = () => {
           if (!form.className || !form.name || !form.statusOption) {
             showToast('請確實填寫「班級」、「姓名」與「是否改單狀態」！', 'error'); return;
@@ -501,13 +558,11 @@
           }
         };
 
-        // 🌟 新增：使用者在 Modal 確認 0 元也要強制新增
         const confirmAddRecord = () => {
           isConfirmModalOpen.value = false;
           executeSubmitNewRecord();
         };
 
-        // 原本的寫入邏輯 (被拆分出來)
         const executeSubmitNewRecord = async () => {
           const checkedItems = filteredBooks.value.filter(b => selectedBooks.value[b.id]);
           let purchasedItemsStr = "";
@@ -600,7 +655,7 @@
 
         return {
           isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
-          allBooks, processedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
+          allBooks, processedBooks, allProcessedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
           selectedBooks, form, toast, totalPrice, getPublisherClass,
           grade7Total, grade8Total, grade9Total,
           handleGradeChange, toggleSelection, selectAll, deselectAll, 
