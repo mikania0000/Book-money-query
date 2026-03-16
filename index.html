@@ -141,7 +141,8 @@
       
       <!-- 標題與登出列 -->
       <div class="bg-emerald-700 text-white p-5 flex flex-col md:flex-row justify-between items-center gap-4 rounded-t-xl">
-        <h1 class="text-[26px] font-bold tracking-wide">教科書價錢查詢與紀錄系統</h1>
+        <!-- ✅ 將固定文字改為綁定系統標題變數 -->
+        <h1 class="text-[26px] font-bold tracking-wide">{{ systemTitle }}</h1>
         <div v-if="isAuthenticated" class="flex items-center gap-3">
           <span class="text-[18px] opacity-90">{{ userEmail }}</span>
           <button @click="logout" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold text-[18px] transition">登出</button>
@@ -457,6 +458,7 @@
         const userEmail = ref('');
         const authLoading = ref(true);
         const activeTab = ref('new');
+        const systemTitle = ref('教科書查詢與紀錄'); // ✅ 修改預設標題
 
         const allBooks = ref([]);
         const records = ref([]);
@@ -532,7 +534,15 @@
           try {
             const res = await fetch(`${GAS_WEB_APP_URL}?action=getBooks`);
             const result = await res.json();
-            if (result.status === 'success') allBooks.value = result.data;
+            if (result.status === 'success') {
+              allBooks.value = result.data;
+              // ✅ 動態抓取學年度並組合最終標題
+              if (result.title) {
+                // 將「鳳甲國中114學年度第2學期教科書單價...」從「教科書」切開，保留前半段並接上指定文字
+                const prefix = result.title.split('教科書')[0];
+                systemTitle.value = prefix + '教科書查詢與紀錄';
+              }
+            }
           } catch (e) { showToast('書單載入錯誤', 'error'); } 
           finally { isLoadingBooks.value = false; }
         };
@@ -761,6 +771,7 @@
 
         return {
           isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
+          systemTitle, // ✅ 匯出標題變數以供模板使用
           allBooks, processedBooks, allProcessedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
           selectedBooks, form, toast, totalPrice, getPublisherClass,
           grade7Total, grade8Total, grade9Total,
