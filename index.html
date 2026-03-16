@@ -130,7 +130,7 @@
           <!-- ================= 頁籤 1: 新增紀錄 ================= -->
           <div v-show="activeTab === 'new'">
             
-            <!-- 上半部：左右分割 (使用 items-stretch 讓左右自動等高) -->
+            <!-- 上半部：左右分割 (使用 items-stretch 確保兩邊容器等高) -->
             <div class="flex flex-col lg:flex-row gap-6 items-stretch mb-6">
               
               <!-- 左側主內容區 (書單) -->
@@ -152,7 +152,7 @@
                   </div>
                 </div>
 
-                <!-- 書單表格 (取消所有高度限制、拉桿，讓它全部展開) -->
+                <!-- 書單表格 (完全展開無拉桿) -->
                 <div class="overflow-x-auto border rounded-lg shadow-sm bg-white flex-1 flex flex-col">
                   <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-emerald-100 text-left">
@@ -170,7 +170,6 @@
                       <tr v-else-if="processedBooks.length === 0" class="text-center bg-white">
                         <td colspan="4" class="px-4 py-6 text-gray-500 font-bold text-[18px]">該年級目前無書單資料</td>
                       </tr>
-                      <!-- 高度極度緊湊化：使用 py-1，字體微調 text-[17px] -->
                       <tr v-for="(book, index) in processedBooks" :key="book.id" 
                           :class="[book.bgColorClass, 'hover:brightness-95 transition cursor-pointer']"
                           @click="toggleSelection(book.id)">
@@ -196,39 +195,50 @@
                 </div>
               </div>
 
-              <!-- 右側統計區 (透過 flex-col 與 flex-1 填滿並切齊底部) -->
-              <div class="w-full lg:w-5/12 shrink-0 flex flex-col gap-6">
-                
-                <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex-none">
-                  <div class="bg-emerald-600 text-white p-4 text-center">
-                    <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
+              <!-- 🌟 修改點：右側統計區 (使用 sticky 讓它在滑動左側時固定在畫面上) -->
+              <div class="w-full lg:w-5/12 shrink-0 relative">
+                <div class="sticky top-6 flex flex-col gap-6">
+                  
+                  <!-- 卡片 1: 目前勾選總計 (固定不隨內部伸展) -->
+                  <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex-none">
+                    <div class="bg-emerald-600 text-white p-4 text-center">
+                      <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
+                    </div>
+                    <div class="p-6 text-center">
+                      <div class="text-[60px] font-black text-red-600 leading-none drop-shadow-sm">{{ totalPrice }}</div>
+                      <div class="text-[18px] text-gray-500 font-bold mt-3">新台幣 (元)</div>
+                    </div>
                   </div>
-                  <div class="p-6 text-center">
-                    <div class="text-[60px] font-black text-red-600 leading-none drop-shadow-sm">{{ totalPrice }}</div>
-                    <div class="text-[18px] text-gray-500 font-bold mt-3">新台幣 (元)</div>
-                  </div>
-                </div>
 
-                <!-- 透過 flex-1 與 justify-evenly 自動均分空間，完美切齊左邊底部 -->
-                <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-6 flex-1 flex flex-col">
-                  <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-4 flex-none">各年級全套總價參考</h3>
-                  <div class="flex-1 flex flex-col justify-evenly gap-3">
-                    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
-                      <span class="font-bold text-gray-700 text-[20px]">七年級</span>
-                      <span class="font-bold text-blue-700 text-[24px]">{{ grade7Total }} <span class="text-[16px]">元</span></span>
+                  <!-- 卡片 2: 各年級書價 (緊湊排列並插入圖片) -->
+                  <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-5 flex flex-col">
+                    <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-4 flex-none">各年級書價</h3>
+                    
+                    <!-- 緊湊排列，減少間隔 -->
+                    <div class="flex flex-col gap-3">
+                      <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
+                        <span class="font-bold text-gray-700 text-[20px]">七年級</span>
+                        <span class="font-bold text-blue-700 text-[24px]">{{ grade7Total }} <span class="text-[16px]">元</span></span>
+                      </div>
+                      <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
+                        <span class="font-bold text-gray-700 text-[20px]">八年級</span>
+                        <span class="font-bold text-blue-700 text-[24px]">{{ grade8Total }} <span class="text-[16px]">元</span></span>
+                      </div>
+                      <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
+                        <span class="font-bold text-gray-700 text-[20px]">九年級</span>
+                        <span class="font-bold text-blue-700 text-[24px]">{{ grade9Total }} <span class="text-[16px]">元</span></span>
+                      </div>
                     </div>
-                    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
-                      <span class="font-bold text-gray-700 text-[20px]">八年級</span>
-                      <span class="font-bold text-blue-700 text-[24px]">{{ grade8Total }} <span class="text-[16px]">元</span></span>
-                    </div>
-                    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
-                      <span class="font-bold text-gray-700 text-[20px]">九年級</span>
-                      <span class="font-bold text-blue-700 text-[24px]">{{ grade9Total }} <span class="text-[16px]">元</span></span>
+
+                    <!-- 在下方插入書籍插圖 -->
+                    <div class="mt-5 flex justify-center items-center">
+                      <img src="https://cdn-icons-png.flaticon.com/512/4693/4693768.png" alt="教科書圖示" class="w-28 h-28 object-contain drop-shadow-md opacity-80 hover:scale-105 hover:opacity-100 transition-all duration-300">
                     </div>
                   </div>
-                </div>
 
+                </div>
               </div>
+
             </div>
 
             <!-- 下半部：學生資料與備註區 -->
@@ -341,13 +351,10 @@
               <h2 class="text-[24px] font-bold text-gray-800">全部教科書價格總表 (7~9年級)</h2>
             </div>
             
-            <!-- 加上 w-fit 讓外框自動貼合表格寬度 -->
             <div class="overflow-y-auto overflow-x-auto border rounded-lg shadow-sm max-h-[75vh] no-scrollbar bg-white w-fit">
-              <!-- 移除 min-w-full 讓表格自然縮排 -->
               <table class="divide-y divide-gray-200">
                 <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm text-left">
                   <tr>
-                    <!-- 移除寬度限制，加上 whitespace-nowrap 防換行，並微調字體至17px -->
                     <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">年級</th>
                     <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">科目 / 書名</th>
                     <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">出版社</th>
@@ -362,7 +369,6 @@
                     <td colspan="4" class="px-6 py-8 text-gray-500 font-bold text-[17px]">目前無任何書單資料</td>
                   </tr>
                   <tr v-for="(book, index) in allProcessedBooks" :key="'all-'+book.id" class="hover:bg-slate-50 transition" :class="book.bgColorClass">
-                    <!-- 使用 py-1 達成最緊湊行高 -->
                     <td class="px-6 py-1 font-bold text-emerald-800 text-[17px] whitespace-nowrap">{{ book.grade }} 年級</td>
                     <td class="px-6 py-1 font-bold text-gray-800 text-[17px] whitespace-nowrap">{{ book.subject }}</td>
                     <td class="px-6 py-1 whitespace-nowrap">
