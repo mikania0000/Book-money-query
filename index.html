@@ -47,7 +47,7 @@
       </div>
     </div>
 
-    <!-- ✅ 新增：刪除確認 Modal -->
+    <!-- 刪除確認 Modal -->
     <div v-if="isDeleteModalOpen" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-7 transform transition-all">
         <div class="flex items-center gap-3 mb-4 border-b-2 border-red-500 pb-3">
@@ -74,13 +74,46 @@
           <div><label class="block text-gray-700 font-bold mb-1">座號</label><input type="text" v-model="editForm.seatNo" class="w-full border rounded p-2"></div>
           <div><label class="block text-gray-700 font-bold mb-1">姓名</label><input type="text" v-model="editForm.name" class="w-full border rounded p-2"></div>
         </div>
+        
+        <!-- 動態膠囊標籤選單區塊 -->
         <div class="mb-4">
-          <label class="block text-gray-700 font-bold mb-1">購買內容 (純文字修改)</label>
-          <textarea v-model="editForm.purchasedItems" rows="2" class="w-full border rounded p-2"></textarea>
+          <div class="flex flex-wrap justify-between items-end mb-2 gap-2">
+            <label class="block text-gray-700 font-bold">選購教科書 <span class="text-emerald-600 font-normal text-sm">(點擊下方標籤即可新增 / 移除)</span></label>
+            <div class="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded shadow-sm border">
+              <label class="text-[16px] font-bold text-gray-600">切換年級書單:</label>
+              <select v-model="editForm.grade" @change="handleEditGradeChange" class="bg-transparent font-bold text-emerald-700 outline-none cursor-pointer">
+                <option value="7">七年級</option>
+                <option value="8">八年級</option>
+                <option value="9">九年級</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- 上層：已選項目區 -->
+          <div class="p-3 bg-emerald-50 border border-emerald-300 rounded-t-lg min-h-[60px] flex flex-wrap gap-2 items-start transition-all">
+             <div v-if="Object.values(editSelectedBooks).filter(Boolean).length === 0" class="text-emerald-300 text-[16px] py-1 font-bold">尚未選擇任何科目...</div>
+             <button v-for="book in allBooks.filter(b => b.grade === editForm.grade && editSelectedBooks[b.id])" :key="'edit-sel-'+book.id"
+                     @click="toggleEditSelection(book)"
+                     class="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-full text-[16px] font-bold hover:bg-emerald-700 transition shadow-md transform hover:scale-105 active:scale-95">
+                {{ book.subject }} 
+                <span class="bg-white text-emerald-600 rounded-full w-4 h-4 flex items-center justify-center text-sm font-black leading-none">&times;</span>
+             </button>
+          </div>
+          
+          <!-- 下層：未選項目區 -->
+          <div class="p-3 bg-gray-50 border border-gray-300 border-t-0 rounded-b-lg min-h-[60px] flex flex-wrap gap-2 items-start shadow-inner transition-all">
+             <div v-if="allBooks.filter(b => b.grade === editForm.grade && !editSelectedBooks[b.id]).length === 0" class="text-gray-400 text-[16px] py-1 font-bold">該年級已全數選購</div>
+             <button v-for="book in allBooks.filter(b => b.grade === editForm.grade && !editSelectedBooks[b.id])" :key="'edit-unsel-'+book.id"
+                     @click="toggleEditSelection(book)"
+                     class="flex items-center gap-1.5 bg-white border-2 border-gray-300 text-gray-600 px-3 py-1.5 rounded-full text-[16px] font-bold hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 transition shadow-sm transform hover:scale-105 active:scale-95">
+                <span class="text-emerald-500 font-black text-[18px] leading-none">+</span> {{ book.subject }}
+             </button>
+          </div>
         </div>
+
         <div class="mb-4">
-          <label class="block text-gray-700 font-bold mb-1">總價格</label>
-          <input type="number" v-model="editForm.totalPrice" class="w-full border rounded p-2">
+          <label class="block text-gray-700 font-bold mb-1">總價格 <span class="text-sm text-gray-500 font-normal">(點擊上方標籤會自動計算，也可手動微調)</span></label>
+          <input type="number" v-model="editForm.totalPrice" class="w-full border rounded p-2 text-[20px] font-bold text-red-600 bg-red-50">
         </div>
         <div class="mb-4">
           <label class="block text-gray-700 font-bold mb-1">是否改單狀態</label>
@@ -214,7 +247,7 @@
                 </div>
               </div>
 
-              <!-- ✅ 修改點：右側統計區 - 獨立凍結「總計卡片」 -->
+              <!-- 右側統計區 -->
               <div class="w-full lg:w-5/12 shrink-0 flex flex-col gap-6 relative">
                 
                 <!-- 卡片 1: 目前勾選總計 (標頭冷凍: 獨立 sticky，加入 z-30 確保覆蓋下方內容) -->
@@ -228,7 +261,7 @@
                   </div>
                 </div>
 
-                <!-- 卡片 2: 各年級書價 (取消 sticky，讓它隨頁面正常捲動，當往下捲時會滑入總計卡片的背後) -->
+                <!-- 卡片 2: 各年級書價 -->
                 <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-5 flex flex-col relative z-10">
                   <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-4 flex-none">各年級書價</h3>
                   
@@ -429,13 +462,14 @@
         });
 
         const isEditingModalOpen = ref(false);
+        const editSelectedBooks = ref({});
         const editForm = reactive({
-          id: '', className: '', seatNo: '', name: '', purchasedItems: '', totalPrice: 0, statusBase: '', statusOther: '', notes: ''
+          id: '', grade: '7', className: '', seatNo: '', name: '', purchasedItems: '', totalPrice: 0, statusBase: '', statusOther: '', notes: ''
         });
 
         const isConfirmModalOpen = ref(false);
         
-        // ✅ 刪除專用 Modal 狀態
+        // 刪除專用 Modal 狀態
         const isDeleteModalOpen = ref(false);
         const deleteTargetId = ref('');
 
@@ -614,15 +648,13 @@
           finally { isSubmitting.value = false; }
         };
 
-        // ✅ 修改點：點擊刪除按鈕時，打開自訂 Modal
         const deleteRecord = (id) => {
           deleteTargetId.value = id;
           isDeleteModalOpen.value = true;
         };
 
-        // ✅ 新增：在 Modal 中按下「確認刪除」後執行的邏輯
         const confirmDelete = async () => {
-          isDeleteModalOpen.value = false; // 關閉視窗
+          isDeleteModalOpen.value = false; 
           try {
             const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id: deleteTargetId.value }) });
             const result = await res.json();
@@ -632,13 +664,13 @@
           } catch (e) { showToast('連線錯誤', 'error'); }
         };
 
-        // ✅ 新增：處理編輯 Modal 的年級切換
+        // 處理編輯 Modal 的年級切換
         const handleEditGradeChange = () => {
           editSelectedBooks.value = {};
           editForm.totalPrice = 0;
         };
 
-        // ✅ 新增：點擊書本標籤 (新增/移除) 並自動算錢
+        // 點擊書本標籤 (新增/移除) 並自動算錢
         const toggleEditSelection = (book) => {
           editSelectedBooks.value[book.id] = !editSelectedBooks.value[book.id];
           
@@ -652,7 +684,6 @@
           editForm.totalPrice = sum;
         };
 
-        // ✅ 修改：打開編輯 Modal 時，自動解析舊資料並轉化為圖示
         const openEditModal = (rec) => {
           editForm.id = rec.id;
           editForm.className = rec.className;
@@ -691,7 +722,6 @@
           isEditingModalOpen.value = true;
         };
 
-        // ✅ 修改：儲存編輯時，將圖示選擇狀態重新轉回逗號分隔字串
         const submitEditRecord = async () => {
           let finalStatus = editForm.statusBase;
           if (editForm.statusBase === '4. 其他' && editForm.statusOther.trim() !== '') {
@@ -735,7 +765,7 @@
           handlePreSubmit, confirmAddRecord, isConfirmModalOpen,
           fetchRecords, deleteRecord, confirmDelete, isDeleteModalOpen,
           isEditingModalOpen, editForm, openEditModal, submitEditRecord,
-          editSelectedBooks, handleEditGradeChange, toggleEditSelection // ✅ 匯出這三個新功能
+          editSelectedBooks, handleEditGradeChange, toggleEditSelection
         };
       }
     }).mount('#app');
