@@ -47,6 +47,24 @@
       </div>
     </div>
 
+    <!-- ✅ 新增：刪除確認 Modal -->
+    <div v-if="isDeleteModalOpen" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-7 transform transition-all">
+        <div class="flex items-center gap-3 mb-4 border-b-2 border-red-500 pb-3">
+          <span class="text-3xl">🗑️</span>
+          <h2 class="text-[26px] font-bold text-red-600">確認刪除</h2>
+        </div>
+        <p class="text-[20px] text-gray-700 mb-6 leading-relaxed">
+          確定要刪除這筆紀錄嗎？<br>
+          <span class="text-red-500 text-[16px] font-bold">⚠️ 刪除後將無法復原。</span>
+        </p>
+        <div class="flex justify-end gap-3">
+          <button @click="isDeleteModalOpen = false" class="px-5 py-2 bg-gray-400 text-white font-bold rounded-lg hover:bg-gray-500 text-[18px] transition">取消</button>
+          <button @click="confirmDelete" class="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 text-[18px] transition shadow">確認刪除</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 編輯紀錄 Modal -->
     <div v-if="isEditingModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
@@ -85,10 +103,10 @@
       </div>
     </div>
 
-    <!-- ✅ 修改點 1：移除這裡的 overflow-hidden，解除冷凍效果的封印 -->
+    <!-- 主面板 -->
     <div class="bg-white rounded-xl shadow-md border border-gray-200">
       
-      <!-- 標題與登出列 (補上 rounded-t-xl 讓上方維持圓角) -->
+      <!-- 標題與登出列 -->
       <div class="bg-emerald-700 text-white p-5 flex flex-col md:flex-row justify-between items-center gap-4 rounded-t-xl">
         <h1 class="text-[26px] font-bold tracking-wide">教科書價錢查詢與紀錄系統</h1>
         <div v-if="isAuthenticated" class="flex items-center gap-3">
@@ -131,7 +149,7 @@
           <!-- ================= 頁籤 1: 新增紀錄 ================= -->
           <div v-show="activeTab === 'new'">
             
-            <!-- 上半部：左右分割 (使用 items-stretch 確保兩邊容器等高) -->
+            <!-- 上半部：左右分割 -->
             <div class="flex flex-col lg:flex-row gap-6 items-stretch mb-6">
               
               <!-- 左側主內容區 (書單) -->
@@ -153,7 +171,7 @@
                   </div>
                 </div>
 
-                <!-- 書單表格 (完全展開無拉桿) -->
+                <!-- 書單表格 -->
                 <div class="overflow-x-auto border rounded-lg shadow-sm bg-white flex-1 flex flex-col">
                   <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-emerald-100 text-left">
@@ -196,54 +214,50 @@
                 </div>
               </div>
 
-              <!-- ✅ 修改點 2：右側統計區，加上 z-20 確保冷凍時不會被其它元件蓋住 -->
-              <div class="w-full lg:w-5/12 shrink-0">
-                <div class="sticky top-6 flex flex-col gap-6 z-20">
-                  
-                  <!-- 卡片 1: 目前勾選總計 (固定不隨內部伸展) -->
-                  <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex-none">
-                    <div class="bg-emerald-600 text-white p-4 text-center">
-                      <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
-                    </div>
-                    <div class="p-6 text-center">
-                      <div class="text-[60px] font-black text-red-600 leading-none drop-shadow-sm">{{ totalPrice }}</div>
-                      <div class="text-[18px] text-gray-500 font-bold mt-3">新台幣 (元)</div>
-                    </div>
+              <!-- ✅ 修改點：右側統計區 - 獨立凍結「總計卡片」 -->
+              <div class="w-full lg:w-5/12 shrink-0 flex flex-col gap-6 relative">
+                
+                <!-- 卡片 1: 目前勾選總計 (標頭冷凍: 獨立 sticky，加入 z-30 確保覆蓋下方內容) -->
+                <div class="sticky top-6 z-30 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex-none">
+                  <div class="bg-emerald-600 text-white p-4 text-center">
+                    <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
                   </div>
-
-                  <!-- 卡片 2: 各年級書價 (緊湊排列並插入圖片) -->
-                  <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-5 flex flex-col">
-                    <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-4 flex-none">各年級書價</h3>
-                    
-                    <!-- 緊湊排列，減少間隔 -->
-                    <div class="flex flex-col gap-3">
-                      <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
-                        <span class="font-bold text-gray-700 text-[20px]">七年級</span>
-                        <span class="font-bold text-blue-700 text-[24px]">{{ grade7Total }} <span class="text-[16px]">元</span></span>
-                      </div>
-                      <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
-                        <span class="font-bold text-gray-700 text-[20px]">八年級</span>
-                        <span class="font-bold text-blue-700 text-[24px]">{{ grade8Total }} <span class="text-[16px]">元</span></span>
-                      </div>
-                      <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
-                        <span class="font-bold text-gray-700 text-[20px]">九年級</span>
-                        <span class="font-bold text-blue-700 text-[24px]">{{ grade9Total }} <span class="text-[16px]">元</span></span>
-                      </div>
-                    </div>
-
-                    <!-- 在下方插入書籍插圖 -->
-                    <div class="mt-5 flex justify-center items-center">
-                      <img src="https://cdn-icons-png.flaticon.com/512/4693/4693768.png" alt="教科書圖示" class="w-28 h-28 object-contain drop-shadow-md opacity-80 hover:scale-105 hover:opacity-100 transition-all duration-300">
-                    </div>
+                  <div class="p-6 text-center">
+                    <div class="text-[60px] font-black text-red-600 leading-none drop-shadow-sm">{{ totalPrice }}</div>
+                    <div class="text-[18px] text-gray-500 font-bold mt-3">新台幣 (元)</div>
                   </div>
-
                 </div>
+
+                <!-- 卡片 2: 各年級書價 (取消 sticky，讓它隨頁面正常捲動，當往下捲時會滑入總計卡片的背後) -->
+                <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-5 flex flex-col relative z-10">
+                  <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-4 flex-none">各年級書價</h3>
+                  
+                  <div class="flex flex-col gap-3">
+                    <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
+                      <span class="font-bold text-gray-700 text-[20px]">七年級</span>
+                      <span class="font-bold text-blue-700 text-[24px]">{{ grade7Total }} <span class="text-[16px]">元</span></span>
+                    </div>
+                    <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
+                      <span class="font-bold text-gray-700 text-[20px]">八年級</span>
+                      <span class="font-bold text-blue-700 text-[24px]">{{ grade8Total }} <span class="text-[16px]">元</span></span>
+                    </div>
+                    <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-blue-100">
+                      <span class="font-bold text-gray-700 text-[20px]">九年級</span>
+                      <span class="font-bold text-blue-700 text-[24px]">{{ grade9Total }} <span class="text-[16px]">元</span></span>
+                    </div>
+                  </div>
+
+                  <div class="mt-5 flex justify-center items-center">
+                    <img src="https://cdn-icons-png.flaticon.com/512/4693/4693768.png" alt="教科書圖示" class="w-28 h-28 object-contain drop-shadow-md opacity-80 hover:scale-105 hover:opacity-100 transition-all duration-300">
+                  </div>
+                </div>
+
               </div>
 
             </div>
 
             <!-- 下半部：學生資料與備註區 -->
-            <div class="bg-yellow-50 p-6 rounded-xl border-2 border-yellow-300 mb-6 shadow-sm w-full">
+            <div class="bg-yellow-50 p-6 rounded-xl border-2 border-yellow-300 mb-6 shadow-sm w-full relative z-10">
               <h2 class="text-[22px] font-bold text-gray-800 border-l-8 border-yellow-500 pl-3 mb-5">學生資料與紀錄備註</h2>
               
               <div class="flex flex-wrap gap-4 mb-6 items-end">
@@ -420,6 +434,10 @@
         });
 
         const isConfirmModalOpen = ref(false);
+        
+        // ✅ 刪除專用 Modal 狀態
+        const isDeleteModalOpen = ref(false);
+        const deleteTargetId = ref('');
 
         const showToast = (message, type = 'success') => {
           toast.message = message; toast.type = type; toast.show = true;
@@ -596,10 +614,17 @@
           finally { isSubmitting.value = false; }
         };
 
-        const deleteRecord = async (id) => {
-          if(!confirm('確定要刪除這筆紀錄嗎？刪除後無法恢復。')) return;
+        // ✅ 修改點：點擊刪除按鈕時，打開自訂 Modal
+        const deleteRecord = (id) => {
+          deleteTargetId.value = id;
+          isDeleteModalOpen.value = true;
+        };
+
+        // ✅ 新增：在 Modal 中按下「確認刪除」後執行的邏輯
+        const confirmDelete = async () => {
+          isDeleteModalOpen.value = false; // 關閉視窗
           try {
-            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id: deleteTargetId.value }) });
             const result = await res.json();
             if (result.status === 'success') {
               showToast('🗑️ 紀錄已刪除'); fetchRecords();
@@ -607,14 +632,54 @@
           } catch (e) { showToast('連線錯誤', 'error'); }
         };
 
+        // ✅ 新增：處理編輯 Modal 的年級切換
+        const handleEditGradeChange = () => {
+          editSelectedBooks.value = {};
+          editForm.totalPrice = 0;
+        };
+
+        // ✅ 新增：點擊書本標籤 (新增/移除) 並自動算錢
+        const toggleEditSelection = (book) => {
+          editSelectedBooks.value[book.id] = !editSelectedBooks.value[book.id];
+          
+          // 自動重新計算總金額
+          let sum = 0;
+          allBooks.value.forEach(b => {
+            if (b.grade === editForm.grade && editSelectedBooks.value[b.id]) {
+              sum += b.price;
+            }
+          });
+          editForm.totalPrice = sum;
+        };
+
+        // ✅ 修改：打開編輯 Modal 時，自動解析舊資料並轉化為圖示
         const openEditModal = (rec) => {
           editForm.id = rec.id;
           editForm.className = rec.className;
           editForm.seatNo = rec.seatNo;
           editForm.name = rec.name;
-          editForm.purchasedItems = rec.purchasedItems;
           editForm.totalPrice = rec.totalPrice;
           editForm.notes = rec.notes;
+          
+          // 自動判斷年級 (若班級第一碼是 7,8,9 則帶入，否則預設 7)
+          let guessedGrade = '7';
+          if (rec.className && ['7', '8', '9'].includes(String(rec.className).charAt(0))) {
+            guessedGrade = String(rec.className).charAt(0);
+          }
+          editForm.grade = guessedGrade;
+
+          // 還原已購買的書單勾選狀態
+          editSelectedBooks.value = {};
+          const gradeBooks = allBooks.value.filter(b => b.grade === guessedGrade);
+          
+          if (rec.purchasedItems === '全買') {
+            gradeBooks.forEach(b => editSelectedBooks.value[b.id] = true);
+          } else if (rec.purchasedItems && rec.purchasedItems !== '未購買') {
+            const items = rec.purchasedItems.split(',').map(s => s.trim());
+            gradeBooks.forEach(b => {
+              if (items.includes(b.subject)) editSelectedBooks.value[b.id] = true;
+            });
+          }
           
           if (rec.statusOption && rec.statusOption.startsWith('其他：')) {
             editForm.statusBase = '4. 其他'; editForm.statusOther = rec.statusOption.replace('其他：', '');
@@ -626,15 +691,24 @@
           isEditingModalOpen.value = true;
         };
 
+        // ✅ 修改：儲存編輯時，將圖示選擇狀態重新轉回逗號分隔字串
         const submitEditRecord = async () => {
           let finalStatus = editForm.statusBase;
           if (editForm.statusBase === '4. 其他' && editForm.statusOther.trim() !== '') {
             finalStatus = '其他：' + editForm.statusOther;
           }
+
+          const gradeBooks = allBooks.value.filter(b => b.grade === editForm.grade);
+          const checkedBooks = gradeBooks.filter(b => editSelectedBooks.value[b.id]);
+          let newPurchasedItemsStr = "";
+          if (checkedBooks.length === 0) newPurchasedItemsStr = "未購買";
+          else if (checkedBooks.length === gradeBooks.length) newPurchasedItemsStr = "全買";
+          else newPurchasedItemsStr = checkedBooks.map(b => b.subject).join(", ");
+
           const payload = {
             action: 'update', id: editForm.id,
             className: editForm.className, name: editForm.name, seatNo: editForm.seatNo,
-            purchasedItems: editForm.purchasedItems, totalPrice: editForm.totalPrice,
+            purchasedItems: newPurchasedItemsStr, totalPrice: editForm.totalPrice,
             statusOption: finalStatus, notes: editForm.notes
           };
           try {
@@ -659,8 +733,9 @@
           grade7Total, grade8Total, grade9Total,
           handleGradeChange, toggleSelection, selectAll, deselectAll, 
           handlePreSubmit, confirmAddRecord, isConfirmModalOpen,
-          fetchRecords, deleteRecord, 
-          isEditingModalOpen, editForm, openEditModal, submitEditRecord
+          fetchRecords, deleteRecord, confirmDelete, isDeleteModalOpen,
+          isEditingModalOpen, editForm, openEditModal, submitEditRecord,
+          editSelectedBooks, handleEditGradeChange, toggleEditSelection // ✅ 匯出這三個新功能
         };
       }
     }).mount('#app');
