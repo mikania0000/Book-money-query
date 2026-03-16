@@ -321,7 +321,7 @@
                     <option disabled value="">-- 請選擇狀態 --</option>
                     <option value="1. 他校轉入，買部分，未註冊，須改單">1. 他校轉入，買部分，未註冊，須改單</option>
                     <option value="2. 他校轉入，買全部，未註冊，不須改單">2. 他校轉入，買全部，未註冊，不須改單</option>
-                    <option value="3. 轉出他校，已寫名字，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
+                    <option value="3. 轉出他校，已簽名，未註冊，出納繳費">3. 轉出他校，已簽名，未註冊，出納繳費</option>
                     <option value="4. 其他">4. 其他</option>
                   </select>
                   <div v-if="form.statusOption === '4. 其他'" class="animate-fade-in mt-2">
@@ -395,39 +395,48 @@
 
           <!-- ================= 頁籤 3: 全部教科書價格總表 ================= -->
           <div v-show="activeTab === 'allBooks'">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex justify-between items-center mb-6">
               <h2 class="text-[24px] font-bold text-gray-800">全部教科書價格總表 (7~9年級)</h2>
             </div>
             
-            <div class="overflow-y-auto overflow-x-auto border rounded-lg shadow-sm max-h-[75vh] no-scrollbar bg-white w-fit">
-              <table class="divide-y divide-gray-200">
-                <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm text-left">
-                  <tr>
-                    <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">年級</th>
-                    <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">科目 / 書名</th>
-                    <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">出版社</th>
-                    <th class="px-6 py-2 text-right font-bold text-gray-800 text-[17px] whitespace-nowrap">單價</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                  <tr v-if="isLoadingBooks" class="text-center bg-white">
-                    <td colspan="4" class="px-6 py-8 text-gray-500 font-bold text-[17px]">書單資料載入中...</td>
-                  </tr>
-                  <tr v-else-if="allProcessedBooks.length === 0" class="text-center bg-white">
-                    <td colspan="4" class="px-6 py-8 text-gray-500 font-bold text-[17px]">目前無任何書單資料</td>
-                  </tr>
-                  <tr v-for="(book, index) in allProcessedBooks" :key="'all-'+book.id" class="hover:bg-slate-50 transition" :class="book.bgColorClass">
-                    <td class="px-6 py-1 font-bold text-emerald-800 text-[17px] whitespace-nowrap">{{ book.grade }} 年級</td>
-                    <td class="px-6 py-1 font-bold text-gray-800 text-[17px] whitespace-nowrap">{{ book.subject }}</td>
-                    <td class="px-6 py-1 whitespace-nowrap">
-                      <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[14px] inline-block shadow-sm">
-                        {{ book.publisher }}
-                      </span>
-                    </td>
-                    <td class="px-6 py-1 text-right font-black text-emerald-700 text-[17px] whitespace-nowrap">{{ book.price }}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <!-- 取消原本的高度限制與拉桿，分為七、八、九年級三個獨立表單 -->
+            <div class="flex flex-col gap-10 pb-10">
+              
+              <!-- 動態產出 7, 8, 9 年級表格 -->
+              <div v-for="gradeLevel in ['7', '8', '9']" :key="'grade-table-' + gradeLevel">
+                <h3 class="text-[22px] font-bold text-emerald-800 mb-3 pl-3 border-l-6 border-emerald-500">{{ gradeLevel }} 年級</h3>
+                <div class="overflow-x-auto border rounded-lg shadow-sm bg-white w-fit">
+                  <table class="divide-y divide-gray-200 min-w-[500px]">
+                    <thead class="bg-emerald-100 text-left">
+                      <tr>
+                        <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">年級</th>
+                        <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">科目 / 書名</th>
+                        <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">出版社</th>
+                        <th class="px-6 py-2 text-right font-bold text-gray-800 text-[17px] whitespace-nowrap">單價</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                      <tr v-if="isLoadingBooks" class="text-center bg-white">
+                        <td colspan="4" class="px-6 py-8 text-gray-500 font-bold text-[17px]">書單資料載入中...</td>
+                      </tr>
+                      <tr v-else-if="allProcessedBooks.filter(b => b.grade === gradeLevel).length === 0" class="text-center bg-white">
+                        <td colspan="4" class="px-6 py-8 text-gray-500 font-bold text-[17px]">目前無任何書單資料</td>
+                      </tr>
+                      <tr v-for="(book, index) in allProcessedBooks.filter(b => b.grade === gradeLevel)" :key="'all-'+book.id" class="hover:bg-slate-50 transition" :class="book.bgColorClass">
+                        <td class="px-6 py-1.5 font-bold text-emerald-800 text-[17px] whitespace-nowrap">{{ book.grade }} 年級</td>
+                        <td class="px-6 py-1.5 font-bold text-gray-800 text-[17px] whitespace-nowrap">{{ book.subject }}</td>
+                        <td class="px-6 py-1.5 whitespace-nowrap">
+                          <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[14px] inline-block shadow-sm">
+                            {{ book.publisher }}
+                          </span>
+                        </td>
+                        <td class="px-6 py-1.5 text-right font-black text-emerald-700 text-[17px] whitespace-nowrap">{{ book.price }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -462,7 +471,8 @@
         });
 
         const isEditingModalOpen = ref(false);
-        const editSelectedBooks = ref({});
+        // ✅ 用於紀錄編輯 Modal 中的膠囊按鈕狀態
+        const editSelectedBooks = ref({}); 
         const editForm = reactive({
           id: '', grade: '7', className: '', seatNo: '', name: '', purchasedItems: '', totalPrice: 0, statusBase: '', statusOther: '', notes: ''
         });
@@ -664,13 +674,13 @@
           } catch (e) { showToast('連線錯誤', 'error'); }
         };
 
-        // 處理編輯 Modal 的年級切換
+        // ✅ 處理編輯 Modal 的年級切換
         const handleEditGradeChange = () => {
           editSelectedBooks.value = {};
           editForm.totalPrice = 0;
         };
 
-        // 點擊書本標籤 (新增/移除) 並自動算錢
+        // ✅ 點擊書本標籤 (新增/移除) 並自動算錢
         const toggleEditSelection = (book) => {
           editSelectedBooks.value[book.id] = !editSelectedBooks.value[book.id];
           
@@ -756,6 +766,7 @@
           else { authLoading.value = false; setTimeout(() => renderGoogleButton(), 100); }
         });
 
+        // ✅ 確保所有在此宣告的變數都有匯出
         return {
           isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
           allBooks, processedBooks, allProcessedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
@@ -765,7 +776,7 @@
           handlePreSubmit, confirmAddRecord, isConfirmModalOpen,
           fetchRecords, deleteRecord, confirmDelete, isDeleteModalOpen,
           isEditingModalOpen, editForm, openEditModal, submitEditRecord,
-          editSelectedBooks, handleEditGradeChange, toggleEditSelection
+          editSelectedBooks, handleEditGradeChange, toggleEditSelection // <-- 修復 ReferenceError 的關鍵
         };
       }
     }).mount('#app');
