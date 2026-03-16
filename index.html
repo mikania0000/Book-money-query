@@ -85,10 +85,11 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+    <!-- ✅ 修改點 1：移除這裡的 overflow-hidden，解除冷凍效果的封印 -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-200">
       
-      <!-- 標題與登出列 -->
-      <div class="bg-emerald-700 text-white p-5 flex flex-col md:flex-row justify-between items-center gap-4">
+      <!-- 標題與登出列 (補上 rounded-t-xl 讓上方維持圓角) -->
+      <div class="bg-emerald-700 text-white p-5 flex flex-col md:flex-row justify-between items-center gap-4 rounded-t-xl">
         <h1 class="text-[26px] font-bold tracking-wide">教科書價錢查詢與紀錄系統</h1>
         <div v-if="isAuthenticated" class="flex items-center gap-3">
           <span class="text-[18px] opacity-90">{{ userEmail }}</span>
@@ -195,9 +196,9 @@
                 </div>
               </div>
 
-              <!-- 🌟 修改點：右側統計區 (使用 sticky 讓它在滑動左側時固定在畫面上) -->
-              <div class="w-full lg:w-5/12 shrink-0 relative">
-                <div class="sticky top-6 flex flex-col gap-6">
+              <!-- ✅ 修改點 2：右側統計區，加上 z-20 確保冷凍時不會被其它元件蓋住 -->
+              <div class="w-full lg:w-5/12 shrink-0">
+                <div class="sticky top-6 flex flex-col gap-6 z-20">
                   
                   <!-- 卡片 1: 目前勾選總計 (固定不隨內部伸展) -->
                   <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex-none">
