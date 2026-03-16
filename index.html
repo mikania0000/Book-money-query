@@ -114,7 +114,7 @@
         <!-- 系統主要內容 -->
         <div v-else>
           
-          <!-- 頁籤切換 (新增第三頁籤) -->
+          <!-- 頁籤切換 -->
           <div class="flex flex-wrap gap-2 border-b-2 border-emerald-200 mb-6">
             <button @click="activeTab = 'new'" class="px-6 py-3 font-bold text-[22px] transition" :class="activeTab === 'new' ? 'bg-emerald-100 text-emerald-800 border-b-4 border-emerald-600 rounded-t-lg' : 'text-gray-500 hover:bg-gray-50'">
               新增紀錄
@@ -130,11 +130,11 @@
           <!-- ================= 頁籤 1: 新增紀錄 ================= -->
           <div v-show="activeTab === 'new'">
             
-            <!-- 上半部：左右分割 (書單 & 統計) -->
-            <div class="flex flex-col lg:flex-row gap-8 items-start mb-6">
+            <!-- 上半部：左右分割 (使用 items-stretch 讓左右自動等高) -->
+            <div class="flex flex-col lg:flex-row gap-6 items-stretch mb-6">
               
               <!-- 左側主內容區 (書單) -->
-              <div class="flex-1 w-full lg:w-7/12 min-w-0">
+              <div class="flex-1 w-full lg:w-7/12 min-w-0 flex flex-col">
                 
                 <div class="flex flex-col md:flex-row items-center justify-between mb-4 gap-4 bg-slate-50 p-3 rounded-lg border">
                   <div class="flex items-center gap-4 w-full md:w-auto">
@@ -152,15 +152,15 @@
                   </div>
                 </div>
 
-                <!-- 書單表格 (將 max-h-[60vh] 修改為精準切齊高度的 h-[460px]) -->
-                <div class="overflow-y-auto overflow-x-auto border rounded-lg shadow-sm h-[460px] relative no-scrollbar bg-white">
+                <!-- 書單表格 (取消所有高度限制、拉桿，讓它全部展開) -->
+                <div class="overflow-x-auto border rounded-lg shadow-sm bg-white flex-1 flex flex-col">
                   <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm text-left">
+                    <thead class="bg-emerald-100 text-left">
                       <tr>
-                        <th class="px-2 py-2 text-center font-bold text-gray-800 w-[60px] text-[18px]">勾選</th>
-                        <th class="px-3 py-2 font-bold text-gray-800 text-[18px]">科目 / 書名</th>
-                        <th class="px-3 py-2 font-bold text-gray-800 w-[120px] text-[18px]">出版社</th>
-                        <th class="px-3 py-2 text-right font-bold text-gray-800 w-[100px] text-[18px]">單價</th>
+                        <th class="px-2 py-2 text-center font-bold text-gray-800 w-[60px] text-[17px]">勾選</th>
+                        <th class="px-3 py-2 font-bold text-gray-800 text-[17px]">科目 / 書名</th>
+                        <th class="px-3 py-2 font-bold text-gray-800 w-[120px] text-[17px]">出版社</th>
+                        <th class="px-3 py-2 text-right font-bold text-gray-800 w-[100px] text-[17px]">單價</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -170,49 +170,49 @@
                       <tr v-else-if="processedBooks.length === 0" class="text-center bg-white">
                         <td colspan="4" class="px-4 py-6 text-gray-500 font-bold text-[18px]">該年級目前無書單資料</td>
                       </tr>
-                      <!-- 使用 py-1.5 達成緊湊效果 -->
+                      <!-- 高度極度緊湊化：使用 py-1，字體微調 text-[17px] -->
                       <tr v-for="(book, index) in processedBooks" :key="book.id" 
                           :class="[book.bgColorClass, 'hover:brightness-95 transition cursor-pointer']"
                           @click="toggleSelection(book.id)">
-                        <td class="px-2 py-1.5 text-center" @click.stop>
+                        <td class="px-2 py-1 text-center" @click.stop>
                           <input type="checkbox" v-model="selectedBooks[book.id]" class="custom-checkbox mt-1">
                         </td>
-                        <td class="px-3 py-1.5 font-bold text-gray-800 text-[18px]">{{ book.subject }}</td>
-                        <td class="px-3 py-1.5">
-                          <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[15px] inline-block shadow-sm">
+                        <td class="px-3 py-1 font-bold text-gray-800 text-[17px]">{{ book.subject }}</td>
+                        <td class="px-3 py-1">
+                          <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[14px] inline-block shadow-sm">
                             {{ book.publisher }}
                           </span>
                         </td>
-                        <td class="px-3 py-1.5 text-right font-black text-emerald-700 text-[18px]">{{ book.price }}</td>
+                        <td class="px-3 py-1 text-right font-black text-emerald-700 text-[18px]">{{ book.price }}</td>
                       </tr>
                     </tbody>
-                    <tfoot class="bg-emerald-50 border-t-4 border-emerald-400 sticky bottom-0 z-10 shadow-[0_-2px_6px_rgba(0,0,0,0.05)]">
+                    <tfoot class="bg-emerald-50 border-t-4 border-emerald-400">
                       <tr>
-                        <td colspan="3" class="px-3 py-2 text-right font-bold text-gray-800 text-[20px]">勾選總計：</td>
-                        <td class="px-3 py-2 text-right font-black text-red-600 text-[24px]">{{ totalPrice }}</td>
+                        <td colspan="3" class="px-3 py-2 text-right font-bold text-gray-800 text-[18px]">勾選總計：</td>
+                        <td class="px-3 py-2 text-right font-black text-red-600 text-[22px]">{{ totalPrice }}</td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
               </div>
 
-              <!-- 右側統計區 (側邊欄放大) -->
-              <div class="w-full lg:w-5/12 shrink-0 sticky top-6 space-y-6">
+              <!-- 右側統計區 (透過 flex-col 與 flex-1 填滿並切齊底部) -->
+              <div class="w-full lg:w-5/12 shrink-0 flex flex-col gap-6">
                 
-                <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex-none">
                   <div class="bg-emerald-600 text-white p-4 text-center">
                     <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
                   </div>
                   <div class="p-6 text-center">
-                    <!-- 總價金額字體明顯放大 -->
                     <div class="text-[60px] font-black text-red-600 leading-none drop-shadow-sm">{{ totalPrice }}</div>
                     <div class="text-[18px] text-gray-500 font-bold mt-3">新台幣 (元)</div>
                   </div>
                 </div>
 
-                <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-6">
-                  <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-5">各年級全套總價參考</h3>
-                  <div class="space-y-4">
+                <!-- 透過 flex-1 與 justify-evenly 自動均分空間，完美切齊左邊底部 -->
+                <div class="bg-blue-50 rounded-xl shadow-md border border-blue-200 p-6 flex-1 flex flex-col">
+                  <h3 class="text-[22px] font-bold text-blue-900 border-l-6 border-blue-500 pl-3 mb-4 flex-none">各年級全套總價參考</h3>
+                  <div class="flex-1 flex flex-col justify-evenly gap-3">
                     <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-blue-100">
                       <span class="font-bold text-gray-700 text-[20px]">七年級</span>
                       <span class="font-bold text-blue-700 text-[24px]">{{ grade7Total }} <span class="text-[16px]">元</span></span>
@@ -231,11 +231,10 @@
               </div>
             </div>
 
-            <!-- 下半部：學生資料與備註區 (全寬撐滿) -->
+            <!-- 下半部：學生資料與備註區 -->
             <div class="bg-yellow-50 p-6 rounded-xl border-2 border-yellow-300 mb-6 shadow-sm w-full">
               <h2 class="text-[22px] font-bold text-gray-800 border-l-8 border-yellow-500 pl-3 mb-5">學生資料與紀錄備註</h2>
               
-              <!-- 第一排：基本資料 -->
               <div class="flex flex-wrap gap-4 mb-6 items-end">
                 <div class="w-[140px]">
                   <label class="block text-[18px] font-bold text-gray-700 mb-1.5">班級(例:701) <span class="text-red-500">*</span></label>
@@ -249,7 +248,6 @@
                   <label class="block text-[18px] font-bold text-gray-700 mb-1.5">姓名 <span class="text-red-500">*</span></label>
                   <input type="text" v-model="form.name" class="w-full border-gray-300 rounded p-2.5 border focus:ring-yellow-500 text-[18px]" placeholder="輸入姓名">
                 </div>
-                <!-- 費用同步顯示 -->
                 <div class="w-[140px]">
                   <label class="block text-[18px] font-bold text-gray-700 mb-1.5">總費用 (元)</label>
                   <div class="w-full bg-yellow-100 border-yellow-400 rounded p-2.5 border text-[18px] font-black text-red-600 text-right cursor-not-allowed shadow-inner">
@@ -258,7 +256,6 @@
                 </div>
               </div>
 
-              <!-- 第二排：狀態與備註 -->
               <div class="flex flex-wrap gap-6">
                 <div class="w-full md:w-[400px]">
                   <label class="block text-[18px] font-bold text-gray-700 mb-1.5">是否改單狀態 <span class="text-red-500">*</span></label>
@@ -280,7 +277,6 @@
               </div>
             </div>
 
-            <!-- 提交按鈕 -->
             <div class="text-center pb-6">
               <button @click="handlePreSubmit" :disabled="isSubmitting"
                       class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold py-4 px-16 rounded-xl shadow-xl transition text-[24px] w-full md:w-auto transform hover:scale-105">
@@ -345,33 +341,36 @@
               <h2 class="text-[24px] font-bold text-gray-800">全部教科書價格總表 (7~9年級)</h2>
             </div>
             
-            <div class="overflow-y-auto overflow-x-auto border rounded-lg shadow-sm max-h-[75vh] no-scrollbar bg-white">
-              <table class="min-w-full divide-y divide-gray-200">
+            <!-- 加上 w-fit 讓外框自動貼合表格寬度 -->
+            <div class="overflow-y-auto overflow-x-auto border rounded-lg shadow-sm max-h-[75vh] no-scrollbar bg-white w-fit">
+              <!-- 移除 min-w-full 讓表格自然縮排 -->
+              <table class="divide-y divide-gray-200">
                 <thead class="bg-emerald-100 sticky top-0 z-10 shadow-sm text-left">
                   <tr>
-                    <th class="px-4 py-3 font-bold text-gray-800 text-[18px] w-[100px]">年級</th>
-                    <th class="px-4 py-3 font-bold text-gray-800 text-[18px]">科目 / 書名</th>
-                    <th class="px-4 py-3 font-bold text-gray-800 text-[18px] w-[140px]">出版社</th>
-                    <th class="px-4 py-3 text-right font-bold text-gray-800 text-[18px] w-[120px]">單價</th>
+                    <!-- 移除寬度限制，加上 whitespace-nowrap 防換行，並微調字體至17px -->
+                    <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">年級</th>
+                    <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">科目 / 書名</th>
+                    <th class="px-6 py-2 font-bold text-gray-800 text-[17px] whitespace-nowrap">出版社</th>
+                    <th class="px-6 py-2 text-right font-bold text-gray-800 text-[17px] whitespace-nowrap">單價</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                   <tr v-if="isLoadingBooks" class="text-center bg-white">
-                    <td colspan="4" class="px-4 py-10 text-gray-500 font-bold text-[18px]">書單資料載入中...</td>
+                    <td colspan="4" class="px-6 py-8 text-gray-500 font-bold text-[17px]">書單資料載入中...</td>
                   </tr>
                   <tr v-else-if="allProcessedBooks.length === 0" class="text-center bg-white">
-                    <td colspan="4" class="px-4 py-10 text-gray-500 font-bold text-[18px]">目前無任何書單資料</td>
+                    <td colspan="4" class="px-6 py-8 text-gray-500 font-bold text-[17px]">目前無任何書單資料</td>
                   </tr>
-                  <!-- 緊湊排列全校書單 -->
                   <tr v-for="(book, index) in allProcessedBooks" :key="'all-'+book.id" class="hover:bg-slate-50 transition" :class="book.bgColorClass">
-                    <td class="px-4 py-1.5 font-bold text-emerald-800 text-[18px] whitespace-nowrap">{{ book.grade }} 年級</td>
-                    <td class="px-4 py-1.5 font-bold text-gray-800 text-[18px]">{{ book.subject }}</td>
-                    <td class="px-4 py-1.5">
-                      <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[15px] inline-block shadow-sm">
+                    <!-- 使用 py-1 達成最緊湊行高 -->
+                    <td class="px-6 py-1 font-bold text-emerald-800 text-[17px] whitespace-nowrap">{{ book.grade }} 年級</td>
+                    <td class="px-6 py-1 font-bold text-gray-800 text-[17px] whitespace-nowrap">{{ book.subject }}</td>
+                    <td class="px-6 py-1 whitespace-nowrap">
+                      <span :class="getPublisherClass(book.publisher)" class="px-2 py-0.5 border rounded font-bold text-[14px] inline-block shadow-sm">
                         {{ book.publisher }}
                       </span>
                     </td>
-                    <td class="px-4 py-1.5 text-right font-black text-emerald-700 text-[18px]">{{ book.price }}</td>
+                    <td class="px-6 py-1 text-right font-black text-emerald-700 text-[17px] whitespace-nowrap">{{ book.price }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -394,7 +393,7 @@
         const isAuthenticated = ref(false);
         const userEmail = ref('');
         const authLoading = ref(true);
-        const activeTab = ref('new'); // 'new', 'manage', 'allBooks'
+        const activeTab = ref('new');
 
         const allBooks = ref([]);
         const records = ref([]);
@@ -420,7 +419,6 @@
           setTimeout(() => { toast.show = false; }, 3000);
         };
 
-        // --- Auth ---
         const decodeJwtResponse = (token) => {
           let base64Url = token.split('.')[1];
           let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -462,7 +460,6 @@
           setTimeout(() => renderGoogleButton(), 100);
         };
 
-        // --- API Fetching ---
         const fetchBooks = async () => {
           isLoadingBooks.value = true;
           try {
@@ -488,7 +485,6 @@
           fetchRecords();
         };
 
-        // --- Logic Computations ---
         const filteredBooks = computed(() => allBooks.value.filter(b => b.grade === form.grade));
 
         const getBaseSubject = (name) => {
@@ -497,7 +493,6 @@
            return name;
         };
 
-        // 目前年級的加工書單 (給「新增紀錄」使用)
         const processedBooks = computed(() => {
           let currentBase = '';
           let colorFlag = true;
@@ -510,12 +505,10 @@
           });
         });
 
-        // 🌟 新增：全校所有書單的加工版 (給「價格總表」使用，依照年級與科目區分底色)
         const allProcessedBooks = computed(() => {
           let currentBase = '';
           let colorFlag = true;
           return allBooks.value.map(book => {
-            // 加上年級前綴，確保換年級時底色邏輯能正確重新計算
             let base = book.grade + '_' + getBaseSubject(book.subject);
             if (base !== currentBase) {
               currentBase = base; colorFlag = !colorFlag; 
@@ -546,7 +539,6 @@
         const selectAll = () => { filteredBooks.value.forEach(b => selectedBooks.value[b.id] = true); };
         const deselectAll = () => { filteredBooks.value.forEach(b => selectedBooks.value[b.id] = false); };
 
-        // --- CRUD Actions ---
         const handlePreSubmit = () => {
           if (!form.className || !form.name || !form.statusOption) {
             showToast('請確實填寫「班級」、「姓名」與「是否改單狀態」！', 'error'); return;
