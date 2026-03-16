@@ -91,7 +91,7 @@
           
           <!-- 上層：已選項目區 -->
           <div class="p-3 bg-emerald-50 border border-emerald-300 rounded-t-lg min-h-[60px] flex flex-wrap gap-2 items-start transition-all">
-             <div v-if="Object.values(editSelectedBooks).filter(Boolean).length === 0" class="text-emerald-300 text-[16px] py-1 font-bold">尚未選擇任何科目...</div>
+             <div v-if="!hasEditSelectedBooks" class="text-emerald-300 text-[16px] py-1 font-bold">尚未選擇任何科目...</div>
              <button v-for="book in allBooks.filter(b => b.grade === editForm.grade && editSelectedBooks[b.id])" :key="'edit-sel-'+book.id"
                      @click="toggleEditSelection(book)"
                      class="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-full text-[16px] font-bold hover:bg-emerald-700 transition shadow-md transform hover:scale-105 active:scale-95">
@@ -141,7 +141,6 @@
       
       <!-- 標題與登出列 -->
       <div class="bg-emerald-700 text-white p-5 flex flex-col md:flex-row justify-between items-center gap-4 rounded-t-xl">
-        <!-- ✅ 將固定文字改為綁定系統標題變數 -->
         <h1 class="text-[26px] font-bold tracking-wide">{{ systemTitle }}</h1>
         <div v-if="isAuthenticated" class="flex items-center gap-3">
           <span class="text-[18px] opacity-90">{{ userEmail }}</span>
@@ -251,7 +250,7 @@
               <!-- 右側統計區 -->
               <div class="w-full lg:w-5/12 shrink-0 flex flex-col gap-6 relative">
                 
-                <!-- 卡片 1: 目前勾選總計 (標頭冷凍: 獨立 sticky，加入 z-30 確保覆蓋下方內容) -->
+                <!-- 卡片 1: 目前勾選總計 (標頭冷凍: 獨立 sticky) -->
                 <div class="sticky top-6 z-30 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex-none">
                   <div class="bg-emerald-600 text-white p-4 text-center">
                     <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
@@ -400,10 +399,7 @@
               <h2 class="text-[24px] font-bold text-gray-800">全部教科書價格總表 (7~9年級)</h2>
             </div>
             
-            <!-- 取消原本的高度限制與拉桿，分為七、八、九年級三個獨立表單 -->
             <div class="flex flex-col gap-10 pb-10">
-              
-              <!-- 動態產出 7, 8, 9 年級表格 -->
               <div v-for="gradeLevel in ['7', '8', '9']" :key="'grade-table-' + gradeLevel">
                 <h3 class="text-[22px] font-bold text-emerald-800 mb-3 pl-3 border-l-6 border-emerald-500">{{ gradeLevel }} 年級</h3>
                 <div class="overflow-x-auto border rounded-lg shadow-sm bg-white w-fit">
@@ -437,7 +433,6 @@
                   </table>
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -453,12 +448,13 @@
       setup() {
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyMHbuQznJV0e9GHn94SEWr0XoPRIgPFrOg9OqPUK100bB_cuB7VN6Ep3rG692AFWtPOQ/exec'; 
         const GOOGLE_CLIENT_ID = '553016940521-araovlp30ctbqn6um5rr49q3es5jm4jg.apps.googleusercontent.com';
+        const API_SECRET = 'FjmTextbook2026'; // ✅ 新增：系統專屬安全金鑰，必須與 GAS 後端一致
         
         const isAuthenticated = ref(false);
         const userEmail = ref('');
         const authLoading = ref(true);
         const activeTab = ref('new');
-        const systemTitle = ref('教科書查詢與紀錄'); // ✅ 修改預設標題
+        const systemTitle = ref('教科書查詢與紀錄');
 
         const allBooks = ref([]);
         const records = ref([]);
@@ -472,14 +468,18 @@
           grade: '7', className: '', seatNo: '', name: '', statusOption: '', statusOther: '', notes: ''
         });
 
+        // 編輯 Modal 專屬變數
         const isEditingModalOpen = ref(false);
-        const editSelectedBooks = ref({}); 
+        const editSelectedBooks = ref({});
         const editForm = reactive({
           id: '', grade: '7', className: '', seatNo: '', name: '', purchasedItems: '', totalPrice: 0, statusBase: '', statusOther: '', notes: ''
         });
 
+        const hasEditSelectedBooks = computed(() => {
+          return Object.values(editSelectedBooks.value).some(val => val === true);
+        });
+
         const isConfirmModalOpen = ref(false);
-        
         const isDeleteModalOpen = ref(false);
         const deleteTargetId = ref('');
 
@@ -498,7 +498,8 @@
         const verifyWhitelist = async (email) => {
           authLoading.value = true;
           try {
-            const res = await fetch(`${GAS_WEB_APP_URL}?action=checkAuth&email=${encodeURIComponent(email)}`);
+            // ✅ 網址後面加上 secret 金鑰參數
+            const res = await fetch(`${GAS_WEB_APP_URL}?action=checkAuth&email=${encodeURIComponent(email)}&secret=${API_SECRET}`);
             const result = await res.json();
             if (result.status === 'success' && result.isAllowed) {
               isAuthenticated.value = true; userEmail.value = email;
@@ -536,9 +537,7 @@
             const result = await res.json();
             if (result.status === 'success') {
               allBooks.value = result.data;
-              // ✅ 動態抓取學年度並組合最終標題
               if (result.title) {
-                // 將「鳳甲國中114學年度第2學期教科書單價...」從「教科書」切開，保留前半段並接上指定文字
                 const prefix = result.title.split('教科書')[0];
                 systemTitle.value = prefix + '教科書查詢與紀錄';
               }
@@ -550,7 +549,8 @@
         const fetchRecords = async () => {
           isLoadingRecords.value = true;
           try {
-            const res = await fetch(`${GAS_WEB_APP_URL}?action=getRecords`);
+            // ✅ 網址後面加上 secret 金鑰參數
+            const res = await fetch(`${GAS_WEB_APP_URL}?action=getRecords&secret=${API_SECRET}`);
             const result = await res.json();
             if (result.status === 'success') records.value = result.data;
           } catch (e) { showToast('紀錄載入錯誤', 'error'); } 
@@ -645,6 +645,7 @@
           }
 
           const payload = {
+            secret: API_SECRET, // ✅ 打包資料時加入金鑰
             action: 'add',
             userEmail: userEmail.value,
             className: form.className, name: form.name, seatNo: form.seatNo,
@@ -674,7 +675,8 @@
         const confirmDelete = async () => {
           isDeleteModalOpen.value = false; 
           try {
-            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id: deleteTargetId.value }) });
+            // ✅ 刪除指令加入金鑰
+            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id: deleteTargetId.value, secret: API_SECRET }) });
             const result = await res.json();
             if (result.status === 'success') {
               showToast('🗑️ 紀錄已刪除'); fetchRecords();
@@ -749,6 +751,7 @@
           else newPurchasedItemsStr = checkedBooks.map(b => b.subject).join(", ");
 
           const payload = {
+            secret: API_SECRET, // ✅ 修改資料時加入金鑰
             action: 'update', id: editForm.id,
             className: editForm.className, name: editForm.name, seatNo: editForm.seatNo,
             purchasedItems: newPurchasedItemsStr, totalPrice: editForm.totalPrice,
@@ -771,7 +774,7 @@
 
         return {
           isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
-          systemTitle, // ✅ 匯出標題變數以供模板使用
+          systemTitle,
           allBooks, processedBooks, allProcessedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
           selectedBooks, form, toast, totalPrice, getPublisherClass,
           grade7Total, grade8Total, grade9Total,
@@ -779,7 +782,7 @@
           handlePreSubmit, confirmAddRecord, isConfirmModalOpen,
           fetchRecords, deleteRecord, confirmDelete, isDeleteModalOpen,
           isEditingModalOpen, editForm, openEditModal, submitEditRecord,
-          editSelectedBooks, handleEditGradeChange, toggleEditSelection 
+          editSelectedBooks, handleEditGradeChange, toggleEditSelection, hasEditSelectedBooks 
         };
       }
     }).mount('#app');
