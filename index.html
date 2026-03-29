@@ -142,7 +142,7 @@
         <h1 class="text-[26px] font-bold tracking-wide">{{ systemTitle }}</h1>
         <div v-if="isAuthenticated" class="flex items-center gap-3">
           <span class="text-[18px] opacity-90">{{ userEmail }}</span>
-          <button @click="logout" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold text-[18px] transition">登出</button>
+          <button @click="logout" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold text-[18px] transition shadow-md">安全登出</button>
         </div>
       </div>
 
@@ -154,17 +154,12 @@
           <p class="text-[22px] font-bold text-gray-600">系統載入與身分驗證中...</p>
         </div>
 
-        <!-- ✅ 全新安全登入畫面：動態輸入密碼 + Google 登入 -->
+        <!-- 登入畫面：純 Google 登入 (已移除自訂密碼框，標示簡潔) -->
         <div v-else-if="!isAuthenticated" class="max-w-md mx-auto bg-slate-50 p-8 rounded-xl border border-slate-200 text-center my-10 shadow-sm">
-          <h2 class="text-[28px] font-bold mb-2 text-emerald-800">行政人員登入</h2>
-          <p class="mb-6 text-[18px] text-gray-500">請先輸入系統密碼，再以 Google 帳號登入</p>
+          <h2 class="text-[26px] font-bold mb-2 text-emerald-800">系統登入</h2>
+          <p class="mb-6 text-[16px] text-gray-500">僅限白名單人員使用</p>
           
-          <div class="mb-6">
-            <input type="password" v-model="apiSecret" placeholder="請輸入系統管理密碼" 
-                   class="w-full border-2 border-gray-300 rounded-lg p-3 text-[20px] focus:border-emerald-500 focus:outline-none text-center">
-          </div>
-
-          <div id="google-button-container" class="flex justify-center min-h-[50px]"></div>
+          <div id="google-button-container" class="flex justify-center min-h-[50px] mb-2"></div>
         </div>
 
         <!-- 系統主要內容 -->
@@ -254,7 +249,7 @@
               <!-- 右側統計區 -->
               <div class="w-full lg:w-5/12 shrink-0 flex flex-col gap-6 relative">
                 
-                <!-- 卡片 1: 目前勾選總計 (標頭冷凍) -->
+                <!-- 卡片 1: 目前勾選總計 -->
                 <div class="sticky top-6 z-30 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden flex-none">
                   <div class="bg-emerald-600 text-white p-4 text-center">
                     <h3 class="text-[22px] font-bold tracking-wider">目前勾選總計</h3>
@@ -282,10 +277,6 @@
                       <span class="font-bold text-gray-700 text-[20px]">九年級</span>
                       <span class="font-bold text-blue-700 text-[24px]">{{ grade9Total }} <span class="text-[16px]">元</span></span>
                     </div>
-                  </div>
-
-                  <div class="mt-5 flex justify-center items-center">
-                    <img src="https://cdn-icons-png.flaticon.com/512/4693/4693768.png" alt="教科書圖示" class="w-28 h-28 object-contain drop-shadow-md opacity-80 hover:scale-105 hover:opacity-100 transition-all duration-300">
                   </div>
                 </div>
 
@@ -450,11 +441,9 @@
 
     createApp({
       setup() {
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyMHbuQznJV0e9GHn94SEWr0XoPRIgPFrOg9OqPUK100bB_cuB7VN6Ep3rG692AFWtPOQ/exec'; 
+        // ★ 請替換為您發佈的全新 GAS 網址
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz_XXXXXXXXX_YOUR_GAS_URL_XXXXXXXXX/exec'; 
         const GOOGLE_CLIENT_ID = '553016940521-araovlp30ctbqn6um5rr49q3es5jm4jg.apps.googleusercontent.com';
-        
-        // ✅ 移除硬編碼，改用動態綁定的密碼變數
-        const apiSecret = ref(''); 
         
         const isAuthenticated = ref(false);
         const userEmail = ref('');
@@ -493,89 +482,155 @@
           setTimeout(() => { toast.show = false; }, 3000);
         };
 
-        const decodeJwtResponse = (token) => {
-          let base64Url = token.split('.')[1];
-          let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          let jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-          return JSON.parse(jsonPayload);
+        // 取得本地儲存的 Token
+        const getSessionToken = () => localStorage.getItem('textbookSys_sessionToken');
+
+        // 通用的封裝 Fetch，自動攜帶 Token
+        const apiPost = async (payload) => {
+          const token = getSessionToken();
+          if (token) payload.sessionToken = token;
+          
+          const res = await fetch(GAS_WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          return await res.json();
         };
 
-        // ✅ 將手動輸入的密碼跟著 Email 一起送到後端驗證
-        const verifyWhitelist = async (email, secretCode) => {
+        // 驗證現有 Token
+        const verifySession = async () => {
+          const token = getSessionToken();
+          if (!token) {
+            authLoading.value = false;
+            setTimeout(() => renderGoogleButton(), 100);
+            return;
+          }
+
           authLoading.value = true;
           try {
-            const res = await fetch(`${GAS_WEB_APP_URL}?action=checkAuth&email=${encodeURIComponent(email)}&secret=${encodeURIComponent(secretCode)}`);
-            const result = await res.json();
-            if (result.status === 'success' && result.isAllowed) {
+            const result = await apiPost({ action: 'verify_session' });
+            if (result.status === 'success' && result.authorized) {
               isAuthenticated.value = true; 
-              userEmail.value = email;
-              // 登入成功後，把資料記憶在瀏覽器，下次就不用重打密碼
-              localStorage.setItem('textbookSys_userEmail', email);
-              localStorage.setItem('textbookSys_secret', secretCode);
-              
-              showToast(`歡迎回來，${email}`);
+              userEmail.value = result.email;
+              showToast(`歡迎回來，${result.email}`);
               fetchBooks();
             } else {
-              showToast('帳號不在白名單內或密碼錯誤！', 'error'); 
-              logout();
+              // Token 失效或不在白名單
+              logoutLocally();
             }
           } catch (e) { 
-            showToast('網路錯誤', 'error'); 
-            logout(); 
-          } 
-          finally { authLoading.value = false; }
+            showToast('連線驗證失敗', 'error'); 
+            logoutLocally(); 
+          } finally { 
+            authLoading.value = false; 
+          }
         };
 
         // Google 登入回呼函式
         window.handleCredentialResponse = async (res) => {
-          // 檢查老師有沒有先在框框輸入密碼
-          if (!apiSecret.value) {
-            showToast('請先輸入系統管理密碼！', 'error');
-            return;
+          authLoading.value = true;
+          try {
+            const result = await apiPost({ action: 'login_google', idToken: res.credential });
+            
+            if (result.status === 'success') {
+              // 登入成功，儲存 Token
+              localStorage.setItem('textbookSys_sessionToken', result.sessionToken);
+              localStorage.setItem('textbookSys_userEmail', result.email);
+              
+              isAuthenticated.value = true;
+              userEmail.value = result.email;
+              showToast(`登入成功：${result.email}`);
+              fetchBooks();
+            } else {
+              showToast('登入失敗：' + result.message, 'error');
+              // 如果登入被拒絕，強制重選帳號
+              if(window.google) google.accounts.id.revoke(result.email || '', () => { renderGoogleButton(); });
+              else renderGoogleButton();
+            }
+          } catch (e) {
+            showToast('網路錯誤', 'error');
+            renderGoogleButton();
+          } finally {
+            authLoading.value = false;
           }
-          const payload = decodeJwtResponse(res.credential);
-          if(payload.email) await verifyWhitelist(payload.email, apiSecret.value);
         };
 
         const renderGoogleButton = () => {
           if (window.google && window.google.accounts) {
-            window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: window.handleCredentialResponse });
+            window.google.accounts.id.initialize({ 
+              client_id: GOOGLE_CLIENT_ID, 
+              callback: window.handleCredentialResponse,
+              auto_select: false // 停用自動選取
+            });
             window.google.accounts.id.renderButton(document.getElementById("google-button-container"), { theme: "outline", size: "large", type: "standard" });
-          } else { setTimeout(renderGoogleButton, 200); }
+          } else { 
+            setTimeout(renderGoogleButton, 200); 
+          }
         };
 
-        const logout = () => {
+        const logoutLocally = () => {
           isAuthenticated.value = false; 
           userEmail.value = ''; 
-          apiSecret.value = ''; // 登出時清空密碼
+          localStorage.removeItem('textbookSys_sessionToken');
           localStorage.removeItem('textbookSys_userEmail');
-          localStorage.removeItem('textbookSys_secret');
           setTimeout(() => renderGoogleButton(), 100);
+        }
+
+        const logout = async () => {
+          const token = getSessionToken();
+          const currentEmail = userEmail.value;
+          
+          // 1. 通知後端註銷 Token
+          if (token) {
+            apiPost({ action: 'logout' }).catch(e => console.error('Backend logout error', e));
+          }
+
+          // 2. 清除前端狀態
+          isAuthenticated.value = false; 
+          userEmail.value = ''; 
+          localStorage.removeItem('textbookSys_sessionToken');
+          localStorage.removeItem('textbookSys_userEmail');
+
+          // 3. 強制 Google 撤銷授權，下次登入必會跳出帳號選擇視窗
+          if (window.google && currentEmail) {
+            google.accounts.id.revoke(currentEmail, done => {
+              console.log('Google 授權已撤銷，將強制重新選擇帳號');
+              renderGoogleButton();
+            });
+          } else {
+            setTimeout(() => renderGoogleButton(), 100);
+          }
+          showToast('已安全登出系統');
         };
 
+        // 讀取書籍 (也改為 POST 確認權限，不過後端已經將 getBooks 設為不強制阻擋 Token)
         const fetchBooks = async () => {
           isLoadingBooks.value = true;
           try {
-            const res = await fetch(`${GAS_WEB_APP_URL}?action=getBooks`);
-            const result = await res.json();
+            const result = await apiPost({ action: 'getBooks' });
             if (result.status === 'success') {
               allBooks.value = result.data;
               if (result.title) {
                 const prefix = result.title.split('教科書')[0];
                 systemTitle.value = prefix + '教科書查詢與紀錄';
               }
+            } else {
+                showToast(result.message, 'error');
             }
           } catch (e) { showToast('書單載入錯誤', 'error'); } 
           finally { isLoadingBooks.value = false; }
         };
 
+        // 讀取紀錄 (POST 攜帶 Session Token 確認權限)
         const fetchRecords = async () => {
           isLoadingRecords.value = true;
           try {
-            // ✅ 帶著記憶體中的密碼去抓紀錄
-            const res = await fetch(`${GAS_WEB_APP_URL}?action=getRecords&secret=${encodeURIComponent(apiSecret.value)}`);
-            const result = await res.json();
-            if (result.status === 'success') records.value = result.data;
+            const result = await apiPost({ action: 'getRecords' });
+            if (result.status === 'success') {
+                records.value = result.data;
+            } else {
+                showToast(result.message, 'error');
+            }
           } catch (e) { showToast('紀錄載入錯誤', 'error'); } 
           finally { isLoadingRecords.value = false; }
         };
@@ -618,9 +673,9 @@
         });
 
         const getPublisherClass = (pub) => {
-           if (pub.includes('康軒')) return 'bg-orange-100 text-orange-800 border-orange-300';
-           if (pub.includes('翰林')) return 'bg-blue-100 text-blue-800 border-blue-300';
-           if (pub.includes('南一')) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+           if (pub && pub.includes('康軒')) return 'bg-orange-100 text-orange-800 border-orange-300';
+           if (pub && pub.includes('翰林')) return 'bg-blue-100 text-blue-800 border-blue-300';
+           if (pub && pub.includes('南一')) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
            return 'bg-green-100 text-green-800 border-green-300'; 
         };
 
@@ -668,9 +723,7 @@
           }
 
           const payload = {
-            secret: apiSecret.value, // ✅ 打包資料時加入手動輸入的金鑰
             action: 'add',
-            userEmail: userEmail.value,
             className: form.className, name: form.name, seatNo: form.seatNo,
             totalPrice: totalPrice.value, purchasedItems: purchasedItemsStr,
             statusOption: finalStatus, notes: form.notes
@@ -678,8 +731,7 @@
 
           isSubmitting.value = true;
           try {
-            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const result = await res.json();
+            const result = await apiPost(payload);
             if (result.status === 'success') {
               showToast('✅ 紀錄新增成功！');
               form.className = ''; form.seatNo = ''; form.name = ''; 
@@ -698,12 +750,10 @@
         const confirmDelete = async () => {
           isDeleteModalOpen.value = false; 
           try {
-            // ✅ 刪除指令加入金鑰
-            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', id: deleteTargetId.value, secret: apiSecret.value }) });
-            const result = await res.json();
+            const result = await apiPost({ action: 'delete', id: deleteTargetId.value });
             if (result.status === 'success') {
               showToast('🗑️ 紀錄已刪除'); fetchRecords();
-            } else showToast('刪除失敗', 'error');
+            } else showToast('刪除失敗: ' + result.message, 'error');
           } catch (e) { showToast('連線錯誤', 'error'); }
         };
 
@@ -774,38 +824,26 @@
           else newPurchasedItemsStr = checkedBooks.map(b => b.subject).join(", ");
 
           const payload = {
-            secret: apiSecret.value, // ✅ 修改資料時加入金鑰
             action: 'update', id: editForm.id,
             className: editForm.className, name: editForm.name, seatNo: editForm.seatNo,
             purchasedItems: newPurchasedItemsStr, totalPrice: editForm.totalPrice,
             statusOption: finalStatus, notes: editForm.notes
           };
           try {
-            const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const result = await res.json();
+            const result = await apiPost(payload);
             if (result.status === 'success') {
               showToast('✅ 更新成功！'); isEditingModalOpen.value = false; fetchRecords();
-            } else showToast('更新失敗', 'error');
+            } else showToast('更新失敗: ' + result.message, 'error');
           } catch (e) { showToast('連線錯誤', 'error'); }
         };
 
         onMounted(() => {
-          // 檢查瀏覽器有沒有記憶上次登入成功的帳號與密碼
-          const savedEmail = localStorage.getItem('textbookSys_userEmail');
-          const savedSecret = localStorage.getItem('textbookSys_secret');
-          
-          if (savedEmail && savedSecret) {
-            apiSecret.value = savedSecret; // 自動帶入密碼
-            verifyWhitelist(savedEmail, savedSecret);
-          } else { 
-            authLoading.value = false; 
-            setTimeout(() => renderGoogleButton(), 100); 
-          }
+          // 啟動時驗證 Session
+          verifySession();
         });
 
         return {
           isAuthenticated, userEmail, authLoading, logout, activeTab, switchToManageTab,
-          apiSecret, // ✅ 匯出密碼變數供畫面輸入使用
           systemTitle,
           allBooks, processedBooks, allProcessedBooks, isLoadingBooks, isLoadingRecords, isSubmitting, records,
           selectedBooks, form, toast, totalPrice, getPublisherClass,
