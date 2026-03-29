@@ -157,7 +157,7 @@
         <!-- 登入畫面：純 Google 登入 (已移除自訂密碼框，標示簡潔) -->
         <div v-else-if="!isAuthenticated" class="max-w-md mx-auto bg-slate-50 p-8 rounded-xl border border-slate-200 text-center my-10 shadow-sm">
           <h2 class="text-[26px] font-bold mb-2 text-emerald-800">系統登入</h2>
-          <p class="mb-6 text-[16px] text-gray-500">請用Google認證進入</p>
+          <p class="mb-6 text-[16px] text-gray-500">使用Google認證</p>
           
           <div id="google-button-container" class="flex justify-center min-h-[50px] mb-2"></div>
         </div>
@@ -441,7 +441,7 @@
 
     createApp({
       setup() {
-        // ★ 請替換為您發佈的全新 GAS 網址
+        // ★ 請替換為您發佈的全新 GAS 網址 (記得結尾要是 /exec)
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz_XXXXXXXXX_YOUR_GAS_URL_XXXXXXXXX/exec'; 
         const GOOGLE_CLIENT_ID = '553016940521-araovlp30ctbqn6um5rr49q3es5jm4jg.apps.googleusercontent.com';
         
